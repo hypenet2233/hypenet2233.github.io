@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HYPE NET — Admin</title>
+  
+  <link rel="icon" href="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" type="image/jpeg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
+    :root{--brand:#47a563}
+    body{font-family:'Tajawal',sans-serif;background:#f9fafb;line-height:1.6}
+    .container{max-width:980px;margin:0 auto;padding:1.5rem}
+    .header{background-color:#47a56350;color:#1f2937;padding:2rem;text-align:center;border-radius:1rem;margin-bottom:2rem}
+    .card{background:#fff;border-radius:.75rem;box-shadow:0 4px 10px rgba(0,0,0,.07);border:1px solid #e5e7eb}
+    .link-card,.product-card{transition:transform .2s ease-in-out;padding:1.25rem}
+    .link-card:hover,.product-card:hover{transform:translateY(-3px)}
+    .links-grid,.products-grid{display:grid;gap:1.25rem;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+    .modal{position:fixed;z-index:2000;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4)}
+    .modal-content{background:#fff;padding:1.5rem;border-radius:.75rem;box-shadow:0 4px 10px rgba(0,0,0,.1);width:90%;max-width:420px;text-align:center}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .help-hint{font-size:12px;color:#64748b}
+  </style>
+
+  <!-- Injected Firebase config for HYPE NET Display Page -->
+  <script>
+    window.__app_id = "hype-net-display-page";
+    window.__firebase_config = JSON.stringify({"apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc", "authDomain": "hype-net-display-page.firebaseapp.com", "projectId": "hype-net-display-page", "storageBucket": "hype-net-display-page.firebasestorage.app", "messagingSenderId": "505174394261", "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c", "measurementId": "G-M7YWJKGP62"});
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = (() => { try { if (typeof __firebase_config==='string') return JSON.parse(__firebase_config); if (typeof __firebase_config==='object'&&__firebase_config) return __firebase_config; } catch(e){ console.error(e); } return {}; })();
+
+    let app, db, auth;
+    try { app = initializeApp(firebaseConfig); db = getFirestore(app); auth = getAuth(app); }
+    catch(e){ console.error("Firebase initialization error:", e); alert("تعذّر تهيئة Firebase. تأكد من تمرير __firebase_config بشكل صحيح."); }
+
+    let unsubscribeLinks=null, unsubscribeProducts=null;
+
+    async function signIn() {
+      try {
+        const tok = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : '';
+        if (tok) {
+          try { await signInWithCustomToken(auth, tok); } 
+          catch (e) { console.warn("Custom token sign-in failed, falling back to anonymous.", e); await signInAnonymously(auth); }
+        } else { await signInAnonymously(auth); }
+        document.getElementById('app-id-display').textContent = appId;
+        loadLinks(); loadProducts();
+      } catch (e) { console.error("Error signing in:", e); alert("فشل تسجيل الدخول."); }
+    }
+
+    const isValidHttpUrl = (s) => { try { const u = new URL(s); return ['http:','https:'].includes(u.protocol); } catch { return false; } };
+
+    function loadLinks() {
+      if (!auth?.currentUser) return;
+      if (unsubscribeLinks) unsubscribeLinks();
+      const qRef = query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc'));
+      unsubscribeLinks = onSnapshot(qRef, (snap) => {
+        const box = document.getElementById('links-container'); box.innerHTML='';
+        snap.forEach((d)=>{
+          const link=d.data(); const id=d.id;
+          const el=document.createElement('div');
+          el.className='card link-card flex flex-col space-y-3';
+          el.innerHTML=`
+            <p class="text-lg font-bold text-gray-800">${link.title||'—'}</p>
+            <a href="${link.url}" target="_blank" class="text-sm text-blue-600 hover:underline break-words">${link.url||''}</a>
+            <div class="flex items-center justify-between pt-1">
+              <span class="help-hint">${link.timestamp?.toDate? new Date(link.timestamp.toDate()).toLocaleString('ar'):''}</span>
+              <button class="bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600" data-type="link" data-id="${id}">حذف</button>
+            </div>`;
+          el.querySelector('button').onclick=()=>showDeleteModal('link',id);
+          box.appendChild(el);
+        });
+      }, (err)=>console.error("Error fetching links:",err));
+    }
+
+    async function addLink(){
+      const titleEl=document.getElementById('link-title');
+      const urlEl=document.getElementById('link-url');
+      const title=titleEl.value.trim();
+      let url=urlEl.value.trim();
+      if(!title) return alert('الرجاء إدخال عنوان الرابط.');
+      if(!url) return alert('الرجاء إدخال رابط URL.');
+      if(!/^https?:\/\//i.test(url)) url=`https://${url}`;
+      if(!isValidHttpUrl(url)) return alert('صيغة الرابط غير صحيحة.');
+      try{ await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() }); titleEl.value=''; urlEl.value=''; }
+      catch(e){ console.error("Error adding link:",e); alert('تعذر إضافة الرابط.'); }
+    }
+
+    function loadProducts(){
+      if(!auth?.currentUser) return;
+      if(unsubscribeProducts) unsubscribeProducts();
+      const qRef=query(collection(db, `artifacts/${appId}/public/data/products`), orderBy('timestamp','desc'));
+      unsubscribeProducts=onSnapshot(qRef,(snap)=>{
+        const box=document.getElementById('products-container'); box.innerHTML='';
+        snap.forEach((d)=>{
+          const product=d.data(); const id=d.id;
+          const el=document.createElement('div');
+          el.className='card product-card flex flex-col space-y-3';
+          el.innerHTML=`
+            <p class="text-lg font-bold text-gray-800">${product.title||'—'}</p>
+            <a href="${product.url || '#'}" target="_blank" class="text-sm text-blue-600 hover:underline break-words">${product.url||''}</a>
+            <div class="flex items-center justify-between pt-1">
+              <span class="help-hint">${product.timestamp?.toDate? new Date(product.timestamp.toDate()).toLocaleString('ar'):''}</span>
+              <button class="bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600" data-type="product" data-id="${id}">حذف</button>
+            </div>`;
+          el.querySelector('button').onclick=()=>showDeleteModal('product',id);
+          box.appendChild(el);
+        });
+      }, (err)=>console.error("Error fetching products:",err));
+    }
+
+    async function addProduct(){
+      const titleEl = document.getElementById('product-title');
+      const urlEl = document.getElementById('product-url');
+      const title = titleEl.value.trim();
+      let url = urlEl.value.trim();
+      if(!title || !url) return alert('الرجاء إكمال حقلي المنتج.');
+      if(!/^https?:\/\//i.test(url)) url=`https://${url}`;
+      if(!isValidHttpUrl(url)) return alert('صيغة رابط المنتج غير صحيحة.');
+      try{ 
+        await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
+        titleEl.value=''; 
+        urlEl.value=''; 
+      }
+      catch(e){ console.error("Error adding product:",e); alert('تعذر إضافة المنتج.'); }
+    }
+
+    async function deleteItem(type,id){ try{ await deleteDoc(doc(db, `artifacts/${appId}/public/data/${type==='link'?'links':'products'}`, id)); hideDeleteModal(); }catch(e){ console.error("Error deleting item:", e); alert('تعذر الحذف.'); } }
+    function showDeleteModal(type,id){ const m=document.getElementById('delete-modal'); const b=document.getElementById('confirm-delete-button'); b.onclick=()=>deleteItem(type,id); m.style.display='flex'; }
+    function hideDeleteModal(){ document.getElementById('delete-modal').style.display='none' }
+
+    window.addLink=addLink; window.addProduct=addProduct;
+    window.showDeleteModal=showDeleteModal; window.hideDeleteModal=hideDeleteModal;
+
+    signIn();
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <div class="container mx-auto p-4 md:p-8">
+    <div class="header rounded-2xl shadow-lg mb-8">
+      <h1 class="text-4xl md:text-5xl font-extrabold mb-3 text-green-700">لوحة تحكم HYPE NET</h1>
+      <p class="text-gray-600">إدارة الروابط والمنتجات.</p>
+    </div>
+
+    <div class="card p-4 mb-6 text-center text-sm text-gray-600">
+      <p class="font-bold">معرف التطبيق (App ID): <span id="app-id-display" class="mono"></span></p>
+    </div>
+
+    <div class="card p-6 mb-8">
+      <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">إدارة الروابط</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input type="text" id="link-title" placeholder="عنوان الرابط" class="p-3 border rounded-lg">
+        <input type="url" id="link-url" placeholder="رابط URL كامل" class="p-3 border rounded-lg">
+        <button onclick="addLink()" class="bg-green-600 text-white p-3 rounded-lg font-bold">أضف الرابط</button>
+      </div>
+      <div id="links-container" class="links-grid mt-5"></div>
+    </div>
+
+    <div class="card p-6 mb-8">
+      <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">إدارة المنتجات</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input type="text" id="product-title" placeholder="عنوان المنتج" class="p-3 border rounded-lg">
+        <input type="url" id="product-url" placeholder="رابط المنتج (URL)" class="p-3 border rounded-lg">
+        <button onclick="addProduct()" class="bg-green-600 text-white p-3 rounded-lg font-bold">أضف المنتج</button>
+      </div>
+      <div id="products-container" class="products-grid mt-5"></div>
+    </div>
+
+    <div id="delete-modal" class="modal">
+      <div class="modal-content">
+        <p class="text-lg font-bold mb-4">هل أنت متأكد من حذف هذا العنصر؟</p>
+        <div class="flex justify-center gap-4">
+          <button id="confirm-delete-button" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600">نعم</button>
+          <button onclick="hideDeleteModal()" class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
