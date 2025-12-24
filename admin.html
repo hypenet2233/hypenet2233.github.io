@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HYPE NET — Admin Ultimate</title>
+  <title>HYPE NET — Admin Secure</title>
   
   <link rel="icon" href="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" type="image/jpeg">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
     body{font-family:'Tajawal',sans-serif;background:#f3f4f6;}
-    /* شاشة القفل */
+    /* شاشة تسجيل الدخول */
     #login-overlay {position: fixed; inset: 0; background: #111827; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;}
     .section-title { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; color: #374151; font-weight: bold; font-size: 1.25rem; }
+    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 30px; height: 30px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 
   <script>
@@ -22,7 +24,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    // لاحظ: استدعينا دالة تسجيل الدخول بالإيميل بدلاً من المجهول
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const config = JSON.parse(__firebase_config);
@@ -32,45 +35,80 @@
     const appId = "hype-net-display-page";
 
     // ==========================================
-    //       نظام الحماية (كلمة المرور)
+    //       نظام الحماية الحقيقي (Auth)
     // ==========================================
-    const SECRET_PIN = "saeed14233"; 
+    
+    // مراقبة حالة المستخدم: إذا كان مسجلاً للدخول، افتح اللوحة فوراً
+    onAuthStateChanged(auth, (user) => {
+        const overlay = document.getElementById('login-overlay');
+        const content = document.getElementById('admin-content');
+        
+        if (user) {
+            // المستخدم مسجل دخول -> إخفاء القفل وإظهار المحتوى
+            overlay.classList.add('hidden');
+            content.classList.remove('hidden');
+            document.getElementById('current-user-email').innerText = user.email;
+            
+            // تحميل البيانات
+            loadLinks();
+            loadProducts();
+            loadPortfolio();
+        } else {
+            // المستخدم غير مسجل -> إظهار القفل
+            overlay.classList.remove('hidden');
+            overlay.style.display = 'flex'; // إعادة تفعيل الفليكس
+            content.classList.add('hidden');
+        }
+    });
 
-    window.checkLogin = function() {
-      const input = document.getElementById('admin-password').value;
-      if (input === SECRET_PIN) {
-        document.getElementById('login-overlay').style.display = 'none';
-        signIn(); 
-      } else {
-        alert("كلمة المرور خاطئة!");
+    window.performLogin = async function() {
+      const email = document.getElementById('admin-email').value;
+      const pass = document.getElementById('admin-password').value;
+      const btn = document.getElementById('login-btn');
+      const err = document.getElementById('login-error');
+
+      if(!email || !pass) {
+          err.innerText = "الرجاء إدخال البيانات كاملة";
+          return;
+      }
+
+      try {
+          btn.innerHTML = '<div class="loader mx-auto"></div>'; // تحميل
+          await signInWithEmailAndPassword(auth, email, pass);
+          // النجاح سيتم التقاطه عبر onAuthStateChanged تلقائياً
+      } catch (error) {
+          btn.innerText = "دخول آمن";
+          console.error(error);
+          if(error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+              err.innerText = "بيانات الدخول غير صحيحة";
+          } else if (error.code === 'auth/too-many-requests') {
+              err.innerText = "محاولات كثيرة خاطئة، حاول لاحقاً";
+          } else {
+              err.innerText = "حدث خطأ: " + error.message;
+          }
       }
     }
 
-    async function signIn() {
-       await signInAnonymously(auth);
-       loadLinks();
-       loadProducts();
-       loadPortfolio();
+    window.performLogout = function() {
+        signOut(auth).then(() => window.location.reload());
     }
 
-    // دالة مساعدة لضمان صحة الرابط قبل الحفظ
+    // دالة مساعدة لضمان صحة الرابط
     const sanitizeUrl = (url) => {
         if (!url) return '';
         let cleanUrl = url.trim();
-        // إذا لم يبدأ بـ http/https، أضف https تلقائياً
         if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
             cleanUrl = 'https://' + cleanUrl;
         }
         return cleanUrl;
     };
 
-    // --- 1. إدارة الروابط (النظام القديم) ---
+    // --- الوظائف الإدارية (كما هي مع تحسينات طفيفة) ---
+    
+    // 1. الروابط
     async function addLink(){
       const title = document.getElementById('link-title').value.trim();
-      const rawUrl = document.getElementById('link-url').value;
-      
-      const url = sanitizeUrl(rawUrl); // تنظيف الرابط
-
+      const url = sanitizeUrl(document.getElementById('link-url').value);
       if(!title || !url) return alert('البيانات ناقصة');
       await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
       document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
@@ -83,13 +121,10 @@
         });
     }
 
-    // --- 2. إدارة المنتجات (النظام القديم) ---
+    // 2. المنتجات
     async function addProduct(){
       const title = document.getElementById('product-title').value.trim();
-      const rawUrl = document.getElementById('product-url').value;
-
-      const url = sanitizeUrl(rawUrl); // تنظيف الرابط
-
+      const url = sanitizeUrl(document.getElementById('product-url').value);
       if(!title || !url) return alert('البيانات ناقصة');
       await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
       document.getElementById('product-title').value=''; document.getElementById('product-url').value='';
@@ -102,25 +137,16 @@
         });
     }
 
-    // --- 3. إدارة المعرض (النظام الجديد المضاف) ---
+    // 3. المعرض
     async function addPortfolio(){
       const title = document.getElementById('port-title').value.trim();
-      const rawUrl = document.getElementById('port-url').value;
-      const rawImg = document.getElementById('port-img').value;
+      const url = sanitizeUrl(document.getElementById('port-url').value);
+      const img = sanitizeUrl(document.getElementById('port-img').value);
       const platform = document.getElementById('port-platform').value;
 
-      // تنظيف الروابط
-      const url = sanitizeUrl(rawUrl);
-      const img = sanitizeUrl(rawImg);
-
-      if(!title || !url || !img) return alert('البيانات ناقصة (تأكد من الصورة والرابط)');
-      
+      if(!title || !url || !img) return alert('البيانات ناقصة');
       await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
-      
-      // تفريغ الحقول
-      document.getElementById('port-title').value=''; 
-      document.getElementById('port-url').value=''; 
-      document.getElementById('port-img').value='';
+      document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
     }
 
     function loadPortfolio(){
@@ -144,7 +170,6 @@
         });
     }
 
-    // دالة مساعدة
     function createItemElement(docData, container, collectionName) {
         const item = docData.data();
         const el = document.createElement('div');
@@ -166,17 +191,41 @@
 </head>
 <body class="bg-gray-100 pb-20">
 
-  <!-- شاشة القفل -->
+  <!-- شاشة تسجيل الدخول الجديدة -->
   <div id="login-overlay">
-    <div class="text-center">
-      <h2 class="text-2xl font-bold mb-4">Admin Access</h2>
-      <input type="password" id="admin-password" placeholder="Enter PIN" class="p-2 rounded text-black text-center mb-2 block w-full">
-      <button onclick="checkLogin()" class="bg-green-600 px-6 py-2 rounded font-bold w-full">Unlock</button>
+    <div class="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-4">
+      <div class="text-center mb-8">
+          <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-green-500">
+          <h2 class="text-3xl font-bold text-white">Admin Portal</h2>
+          <p class="text-gray-400 text-sm mt-2">يرجى تسجيل الدخول للمتابعة</p>
+      </div>
+      
+      <div class="space-y-4">
+          <div>
+              <label class="block text-gray-400 text-sm mb-1">البريد الإلكتروني</label>
+              <input type="email" id="admin-email" placeholder="name@example.com" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white focus:border-green-500 focus:outline-none transition-colors">
+          </div>
+          <div>
+              <label class="block text-gray-400 text-sm mb-1">كلمة المرور</label>
+              <input type="password" id="admin-password" placeholder="••••••••" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white focus:border-green-500 focus:outline-none transition-colors">
+          </div>
+          <div id="login-error" class="text-red-500 text-sm text-center min-h-[20px]"></div>
+          <button id="login-btn" onclick="performLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow-lg transition-all transform hover:scale-[1.02]">دخول آمن</button>
+      </div>
+      <p class="text-gray-500 text-xs text-center mt-6">Secure Access via Google Firebase Auth</p>
     </div>
   </div>
 
-  <div class="max-w-4xl mx-auto p-4">
-    <h1 class="text-3xl font-black text-gray-800 mb-8 text-center mt-4">لوحة التحكم الشاملة</h1>
+  <!-- المحتوى الإداري (مخفي افتراضياً) -->
+  <div id="admin-content" class="max-w-4xl mx-auto p-4 hidden">
+    
+    <div class="flex justify-between items-center mt-4 mb-8">
+        <h1 class="text-3xl font-black text-gray-800">لوحة التحكم</h1>
+        <div class="flex items-center gap-3">
+            <span id="current-user-email" class="text-xs text-gray-500 bg-white px-3 py-1 rounded-full border shadow-sm"></span>
+            <button onclick="performLogout()" class="bg-red-50 text-red-600 px-4 py-2 rounded text-sm font-bold border border-red-100 hover:bg-red-100">خروج</button>
+        </div>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         
@@ -185,10 +234,10 @@
             <h2 class="section-title">1. الروابط العامة (Links)</h2>
             <div class="space-y-3 mb-4">
                 <input id="link-title" placeholder="عنوان الرابط" class="w-full p-2 border rounded">
-                <input id="link-url" placeholder="الرابط URL (مثال: google.com)" class="w-full p-2 border rounded">
+                <input id="link-url" placeholder="الرابط URL" class="w-full p-2 border rounded">
                 <button onclick="addLink()" class="w-full bg-gray-700 text-white p-2 rounded">أضف رابط</button>
             </div>
-            <div id="links-container" class="text-sm space-y-2"></div>
+            <div id="links-container" class="text-sm space-y-2 max-h-[300px] overflow-y-auto"></div>
         </div>
 
         <!-- القسم 2: المنتجات النصية -->
@@ -199,7 +248,7 @@
                 <input id="product-url" placeholder="رابط المنتج" class="w-full p-2 border rounded">
                 <button onclick="addProduct()" class="w-full bg-gray-700 text-white p-2 rounded">أضف منتج</button>
             </div>
-            <div id="products-container" class="text-sm space-y-2"></div>
+            <div id="products-container" class="text-sm space-y-2 max-h-[300px] overflow-y-auto"></div>
         </div>
 
     </div>
@@ -215,8 +264,8 @@
                 <option value="behance">Behance</option>
                 <option value="other">أخرى</option>
             </select>
-            <input id="port-url" placeholder="رابط الشراء (لا تقلق بشأن https)" class="p-2 border rounded">
-            <input id="port-img" placeholder="رابط الصورة (Image Address)" class="p-2 border rounded">
+            <input id="port-url" placeholder="رابط الشراء" class="p-2 border rounded">
+            <input id="port-img" placeholder="رابط الصورة" class="p-2 border rounded">
         </div>
         <button onclick="addPortfolio()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow">نشر التصميم في المعرض</button>
         
