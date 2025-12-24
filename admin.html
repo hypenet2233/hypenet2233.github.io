@@ -10,10 +10,12 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
     body{font-family:'Tajawal',sans-serif;background:#f3f4f6;}
-    /* شاشة تسجيل الدخول */
-    #login-overlay {position: fixed; inset: 0; background: #111827; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;}
+    
+    /* شاشة القفل - قمنا بإزالة display: flex من هنا لنتحكم بها عبر الكلاسات */
+    #login-overlay {position: fixed; inset: 0; background: #111827; z-index: 9999; color: white;}
+    
     .section-title { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; color: #374151; font-weight: bold; font-size: 1.25rem; }
-    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 30px; height: 30px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #16a34a; width: 24px; height: 24px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 
@@ -22,11 +24,11 @@
     window.__firebase_config = JSON.stringify({"apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc", "authDomain": "hype-net-display-page.firebaseapp.com", "projectId": "hype-net-display-page", "storageBucket": "hype-net-display-page.firebasestorage.app", "messagingSenderId": "505174394261", "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c", "measurementId": "G-M7YWJKGP62"});
   </script>
 
+  <!-- نستخدم إصداراً مستقراً (10.13.1) -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    // لاحظ: استدعينا دالة تسجيل الدخول بالإيميل بدلاً من المجهول
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
     const config = JSON.parse(__firebase_config);
     const app = initializeApp(config);
@@ -35,31 +37,39 @@
     const appId = "hype-net-display-page";
 
     // ==========================================
-    //       نظام الحماية الحقيقي (Auth)
+    //       نظام الحماية والمراقبة
     // ==========================================
     
-    // مراقبة حالة المستخدم: إذا كان مسجلاً للدخول، افتح اللوحة فوراً
     onAuthStateChanged(auth, (user) => {
         const overlay = document.getElementById('login-overlay');
         const content = document.getElementById('admin-content');
         
         if (user) {
-            // المستخدم مسجل دخول -> إخفاء القفل وإظهار المحتوى
-            overlay.classList.add('hidden');
+            // المستخدم مسجل دخول
+            console.log("User is logged in:", user.email);
+            
+            // الحل الجذري: إخفاء الشاشة عبر الستايل المباشر
+            overlay.style.display = 'none';
             content.classList.remove('hidden');
+            
             document.getElementById('current-user-email').innerText = user.email;
             
-            // تحميل البيانات
-            loadLinks();
-            loadProducts();
-            loadPortfolio();
+            // بدء تحميل البيانات
+            loadDataWithProtection();
         } else {
-            // المستخدم غير مسجل -> إظهار القفل
+            // المستخدم غير مسجل
+            overlay.style.display = 'flex'; // إعادة إظهارها
             overlay.classList.remove('hidden');
-            overlay.style.display = 'flex'; // إعادة تفعيل الفليكس
             content.classList.add('hidden');
         }
     });
+
+    // دالة مجمعة لتحميل البيانات مع التقاط أخطاء الصلاحيات
+    function loadDataWithProtection() {
+        loadLinks();
+        loadProducts();
+        loadPortfolio();
+    }
 
     window.performLogin = async function() {
       const email = document.getElementById('admin-email').value;
@@ -73,16 +83,25 @@
       }
 
       try {
-          btn.innerHTML = '<div class="loader mx-auto"></div>'; // تحميل
+          // تغيير شكل الزر ليدل على التحميل
+          btn.innerHTML = '<div class="flex justify-center items-center gap-2"><div class="loader"></div> جاري التحقق...</div>';
+          btn.disabled = true;
+          
           await signInWithEmailAndPassword(auth, email, pass);
-          // النجاح سيتم التقاطه عبر onAuthStateChanged تلقائياً
+          // لا نحتاج لكود هنا، لأن onAuthStateChanged سيعمل تلقائياً
       } catch (error) {
-          btn.innerText = "دخول آمن";
-          console.error(error);
+          // إعادة الزر لحالته الطبيعية عند الخطأ
+          btn.innerHTML = 'دخول آمن';
+          btn.disabled = false;
+          
+          console.error("Login Error:", error);
+          
           if(error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-              err.innerText = "بيانات الدخول غير صحيحة";
+              err.innerText = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
           } else if (error.code === 'auth/too-many-requests') {
-              err.innerText = "محاولات كثيرة خاطئة، حاول لاحقاً";
+              err.innerText = "تم حظر الدخول مؤقتاً لكثرة المحاولات. حاول لاحقاً.";
+          } else if (error.code === 'auth/network-request-failed') {
+             err.innerText = "فشل الاتصال بالشبكة. تحقق من الإنترنت.";
           } else {
               err.innerText = "حدث خطأ: " + error.message;
           }
@@ -93,7 +112,6 @@
         signOut(auth).then(() => window.location.reload());
     }
 
-    // دالة مساعدة لضمان صحة الرابط
     const sanitizeUrl = (url) => {
         if (!url) return '';
         let cleanUrl = url.trim();
@@ -103,22 +121,27 @@
         return cleanUrl;
     };
 
-    // --- الوظائف الإدارية (كما هي مع تحسينات طفيفة) ---
-    
+    // --- الوظائف الإدارية ---
+    // قمت بإضافة (error callback) لكل دالة onSnapshot لمعرفة إذا كانت القواعد تمنعك
+
     // 1. الروابط
     async function addLink(){
       const title = document.getElementById('link-title').value.trim();
       const url = sanitizeUrl(document.getElementById('link-url').value);
       if(!title || !url) return alert('البيانات ناقصة');
-      await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
-      document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
+      try {
+        await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
+        document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
+      } catch(e) { alert("فشل الإضافة: " + e.message + "\nتأكد من صلاحيات القواعد (Rules)."); }
     }
 
     function loadLinks(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc')), (snap)=>{
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc')), 
+        (snap)=>{
             const box = document.getElementById('links-container'); box.innerHTML='';
             snap.forEach(d => createItemElement(d, box, 'links'));
-        });
+        }, 
+        (error) => console.error("Error loading links:", error));
     }
 
     // 2. المنتجات
@@ -126,15 +149,19 @@
       const title = document.getElementById('product-title').value.trim();
       const url = sanitizeUrl(document.getElementById('product-url').value);
       if(!title || !url) return alert('البيانات ناقصة');
-      await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
-      document.getElementById('product-title').value=''; document.getElementById('product-url').value='';
+      try {
+        await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
+        document.getElementById('product-title').value=''; document.getElementById('product-url').value='';
+      } catch(e) { alert("فشل الإضافة: " + e.message); }
     }
 
     function loadProducts(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/products`), orderBy('timestamp','desc')), (snap)=>{
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/products`), orderBy('timestamp','desc')), 
+        (snap)=>{
             const box = document.getElementById('products-container'); box.innerHTML='';
             snap.forEach(d => createItemElement(d, box, 'products'));
-        });
+        },
+        (error) => console.error("Error loading products:", error));
     }
 
     // 3. المعرض
@@ -145,12 +172,15 @@
       const platform = document.getElementById('port-platform').value;
 
       if(!title || !url || !img) return alert('البيانات ناقصة');
-      await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
-      document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
+      try {
+        await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
+        document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
+      } catch(e) { alert("فشل الإضافة: " + e.message); }
     }
 
     function loadPortfolio(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp','desc')), (snap)=>{
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp','desc')), 
+        (snap)=>{
             const box = document.getElementById('portfolio-container'); box.innerHTML='';
             snap.forEach(d => {
                 const item = d.data();
@@ -167,7 +197,8 @@
                 `;
                 box.appendChild(el);
             });
-        });
+        },
+        (error) => console.error("Error loading portfolio:", error));
     }
 
     function createItemElement(docData, container, collectionName) {
@@ -186,14 +217,21 @@
     window.addLink = addLink;
     window.addProduct = addProduct;
     window.addPortfolio = addPortfolio;
-    window.deleteItem = async (col, id) => { if(confirm('هل أنت متأكد من الحذف؟')) await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); };
+    window.deleteItem = async (col, id) => { 
+        if(confirm('هل أنت متأكد من الحذف؟')) {
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); 
+            } catch(e) { alert("فشل الحذف: قد لا تملك صلاحية."); }
+        }
+    };
   </script>
 </head>
 <body class="bg-gray-100 pb-20">
 
   <!-- شاشة تسجيل الدخول الجديدة -->
-  <div id="login-overlay">
-    <div class="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-4">
+  <!-- لاحظ: نستخدم flex هنا ككلاس وليس في الستايل، لكي نتمكن من إخفائها لاحقاً -->
+  <div id="login-overlay" class="flex flex-col items-center justify-center">
+    <div class="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-4 relative">
       <div class="text-center mb-8">
           <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-green-500">
           <h2 class="text-3xl font-bold text-white">Admin Portal</h2>
@@ -209,7 +247,7 @@
               <label class="block text-gray-400 text-sm mb-1">كلمة المرور</label>
               <input type="password" id="admin-password" placeholder="••••••••" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white focus:border-green-500 focus:outline-none transition-colors">
           </div>
-          <div id="login-error" class="text-red-500 text-sm text-center min-h-[20px]"></div>
+          <div id="login-error" class="text-red-500 text-sm text-center min-h-[20px] font-bold"></div>
           <button id="login-btn" onclick="performLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow-lg transition-all transform hover:scale-[1.02]">دخول آمن</button>
       </div>
       <p class="text-gray-500 text-xs text-center mt-6">Secure Access via Google Firebase Auth</p>
