@@ -20,10 +20,15 @@
     /* أنماط البطاقات */
     .link-card { transition: all 0.2s; border: 1px solid #e5e7eb; }
     .link-card:hover { transform: translateY(-2px); border-color: #47a563; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    
     .portfolio-card { transition: all 0.3s ease; }
     .portfolio-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #47a563; }
     
-    /* ألوان المنصات */
+    /* بطاقة المتجر الجديدة (Store Card) */
+    .store-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .store-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #2563eb; }
+
+    /* الشارات (Badges) */
     .badge-redbubble { background: #ffe4e6; color: #e11d48; }
     .badge-amazon { background: #fef3c7; color: #d97706; }
     .badge-behance { background: #dbeafe; color: #2563eb; }
@@ -31,37 +36,17 @@
     .filter-btn.active { background-color: #1f2937; color: white; border-color: #1f2937; }
 
     /* زر واتساب العائم */
-    .whatsapp-float {
-      position: fixed;
-      bottom: 30px;
-      left: 30px;
-      z-index: 100;
-      animation: pulse-green 2s infinite;
-    }
-    .whatsapp-icon {
-      width: 60px;
-      height: 60px;
-      background-color: #25d366;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transition: all 0.3s ease;
-    }
+    .whatsapp-float { position: fixed; bottom: 30px; left: 30px; z-index: 100; animation: pulse-green 2s infinite; }
+    .whatsapp-icon { width: 60px; height: 60px; background-color: #25d366; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
     .whatsapp-icon:hover { transform: scale(1.1); }
     .whatsapp-icon svg { width: 35px; height: 35px; fill: white; }
-
-    @keyframes pulse-green {
-      0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
-      70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
-    }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); } }
+    
+    /* شريط التنبيهات للأخطاء */
+    #error-banner { display: none; }
   </style>
 
-  <!-- ============================================ -->
-  <!-- 1. Google Analytics 4 (تم التفعيل)           -->
-  <!-- ============================================ -->
+  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-M7YWJKGP62"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -77,9 +62,9 @@
   </script>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
     const config = JSON.parse(__firebase_config);
     const app = initializeApp(config);
@@ -92,14 +77,15 @@
     const fixUrl = (url) => {
         if (!url) return '#';
         url = url.trim();
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            return 'https://' + url;
-        }
+        if (!url.startsWith('http://') && !url.startsWith('https://')) return 'https://' + url;
         return url;
     };
 
-    signInAnonymously(auth).then(() => {
-        // تحميل الروابط
+    // دالة بدء التطبيق (تحميل البيانات)
+    function initApp() {
+        console.log("Starting data listeners...");
+        
+        // 1. تحميل الروابط (Links)
         onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp', 'desc')), (snap) => {
             const container = document.getElementById('links-container');
             container.innerHTML = '';
@@ -109,35 +95,75 @@
                 container.innerHTML += `
                 <a href="${fixUrl(data.url)}" target="_blank" class="link-card bg-white p-4 rounded-lg shadow-sm flex items-center justify-between group">
                     <span class="font-bold text-gray-800 group-hover:text-green-600 transition-colors">${data.title}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 group-hover:text-green-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 </a>`;
             });
-        });
+        }, (error) => console.error("Links Error:", error));
 
-        // تحميل المنتجات
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/products`), orderBy('timestamp', 'desc')), (snap) => {
-            const container = document.getElementById('products-container');
+        // 2. تحميل المتجر (Store Products)
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/store_products`), orderBy('timestamp', 'desc')), (snap) => {
+            const container = document.getElementById('store-grid');
             container.innerHTML = '';
-            if(snap.empty) { container.innerHTML = '<p class="text-gray-400 text-sm">لا توجد منتجات.</p>'; return; }
+            
+            if(snap.empty) { 
+                container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">قريباً.. سيتم إضافة منتجات حصرية هنا.</div>'; 
+                return; 
+            }
+            
             snap.forEach(doc => {
-                const data = doc.data();
+                const item = doc.data();
+                const safeImg = item.img || 'https://via.placeholder.com/400x300?text=Digital+Product';
+                
                 container.innerHTML += `
-                <a href="${fixUrl(data.url)}" target="_blank" class="link-card bg-white p-4 rounded-lg shadow-sm border-r-4 border-r-blue-500 hover:border-r-blue-600 block group">
-                    <div class="font-bold text-gray-800 group-hover:text-blue-700 transition-colors">${data.title}</div>
-                    <div class="text-xs text-blue-500 mt-2 font-bold flex items-center gap-1">
-                        عرض المنتج <svg class="w-3 h-3 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                <div class="store-card bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col h-full shadow-sm">
+                    <div class="relative h-48 bg-gray-100 overflow-hidden group">
+                        <img src="${safeImg}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onerror="this.src='https://via.placeholder.com/400x300?text=Error'">
                     </div>
-                </a>`;
+                    <div class="p-5 flex flex-col flex-1">
+                        <h3 class="font-bold text-gray-900 text-lg mb-1 leading-tight">${item.title}</h3>
+                        <p class="text-xs text-gray-500 mb-4">ترخيص فوري • جودة عالية</p>
+                        <div class="mt-auto flex items-center justify-between pt-4 border-t border-gray-50">
+                            <span class="text-xl font-black text-gray-900">$${item.price}</span>
+                            <a href="${fixUrl(item.url)}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors flex items-center gap-1 shadow-lg shadow-blue-200">
+                                شراء الآن <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>`;
             });
-        });
+        }, (error) => console.error("Store Error:", error));
 
-        // تحميل المعرض
+        // 3. تحميل المعرض (Portfolio)
         onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp', 'desc')), (snap) => {
             portfolioItems = [];
             snap.forEach(doc => portfolioItems.push(doc.data()));
             renderGallery('all');
+        }, (error) => console.error("Portfolio Error:", error));
+    }
+
+    // محاولة تسجيل الدخول المجهول
+    signInAnonymously(auth)
+        .then(() => {
+            console.log("Signed in anonymously");
+            initApp();
+        })
+        .catch((error) => {
+            console.error("Authentication Error:", error);
+            
+            // التحقق من الخطأ المحدد وعرض رسالة مساعدة
+            if (error.code === 'auth/admin-restricted-operation') {
+                const banner = document.getElementById('error-banner');
+                banner.style.display = 'block';
+                banner.innerHTML = `
+                    <p class="font-bold">⚠️ تنبيه للمطور:</p>
+                    <p>يجب تفعيل خيار <strong>Anonymous</strong> في لوحة تحكم Firebase.</p>
+                    <p class="text-xs mt-1">Authentication -> Sign-in method -> Enable Anonymous</p>
+                `;
+            }
+            
+            // محاولة تحميل التطبيق على أي حال (قد تعمل إذا كانت القواعد مفتوحة)
+            initApp();
         });
-    });
 
     function renderGallery(filter) {
         const grid = document.getElementById('gallery-grid');
@@ -145,21 +171,21 @@
         const filtered = filter === 'all' ? portfolioItems : portfolioItems.filter(item => item.platform === filter);
         
         if (filtered.length === 0) {
-            grid.innerHTML = `<div class="col-span-full text-center py-12"><p class="text-gray-400 text-lg">لا توجد أعمال.</p></div>`;
+            grid.innerHTML = `<div class="col-span-full text-center py-12"><p class="text-gray-400 text-lg">لا توجد أعمال لعرضها حالياً.</p></div>`;
             return;
         }
 
         filtered.forEach(item => {
             const safeUrl = fixUrl(item.url);
-            const safeImg = item.img || 'https://via.placeholder.com/400x300?text=No+Image';
+            const safeImg = item.img || 'https://via.placeholder.com/400x300?text=Portfolio';
 
             const el = document.createElement('a');
             el.href = safeUrl;
             el.target = "_blank";
-            el.className = "portfolio-card bg-white rounded-xl overflow-hidden shadow border border-gray-100 block group";
+            el.className = "portfolio-card bg-white rounded-xl overflow-hidden shadow border border-gray-100 block group relative";
             el.innerHTML = `
                 <div class="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-                    <img src="${safeImg}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                    <img src="${safeImg}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" onerror="this.src='https://via.placeholder.com/400x300?text=Err'">
                     <span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-1 rounded shadow-sm badge-${item.platform || 'other'}">${(item.platform || 'other').toUpperCase()}</span>
                 </div>
                 <div class="p-4"><h3 class="font-bold text-gray-800 text-sm truncate group-hover:text-green-600 transition-colors">${item.title}</h3></div>
@@ -177,6 +203,9 @@
 </head>
 <body>
 
+  <!-- شريط تنبيه بالأخطاء (يظهر فقط عند الحاجة) -->
+  <div id="error-banner" class="bg-red-600 text-white p-4 text-center fixed top-0 left-0 w-full z-50 shadow-lg"></div>
+
   <header class="bg-white border-b sticky top-0 z-40 shadow-sm/50 backdrop-blur-md bg-white/90">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -189,65 +218,69 @@
     </div>
   </header>
 
-  <main class="container mx-auto px-4 py-8 max-w-5xl">
+  <main class="container mx-auto px-4 py-8 max-w-6xl">
     
-    <!-- القسم 1: الروابط والمنتجات -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div>
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> الروابط العامة</h2>
-            <div id="links-container" class="space-y-3"><div class="h-20 bg-gray-200 rounded animate-pulse"></div></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <!-- القسم 1: الروابط العامة (يسار / أصغر) -->
+        <div class="lg:col-span-1">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 bg-gray-500 rounded-full"></span> روابط هامة
+            </h2>
+            <div id="links-container" class="space-y-3">
+                <div class="h-12 bg-gray-100 rounded animate-pulse"></div>
+            </div>
         </div>
-        <div>
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2"><span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> المنتجات</h2>
-            <div id="products-container" class="space-y-3"><div class="h-20 bg-gray-200 rounded animate-pulse"></div></div>
+
+        <!-- القسم 2: المتجر الرقمي (يمين / أكبر) - يدعم السعر والصورة -->
+        <div class="lg:col-span-2">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span> المتجر الرقمي (Digital Store)
+            </h2>
+            <div id="store-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div class="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+                <div class="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
+            </div>
         </div>
     </div>
 
     <hr class="border-gray-200 my-12">
 
-    <!-- القسم 2: المعرض -->
+    <!-- القسم 3: معرض الأعمال (Portfolio) -->
     <div class="text-center mb-10">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-2">معرض الأعمال</h2>
-        <p class="text-gray-500 text-lg">أحدث إبداعات HYPE NET</p>
+        <h2 class="text-3xl font-extrabold text-gray-900 mb-2">معرض الأعمال</h2>
+        <p class="text-gray-500">نماذج من أعمالنا على المنصات العالمية</p>
     </div>
 
     <div class="flex flex-wrap justify-center gap-3 mb-10">
-        <button onclick="setFilter('all', this)" class="filter-btn active bg-gray-800 text-white px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:shadow-md transition-all">الكل</button>
-        <button onclick="setFilter('redbubble', this)" class="filter-btn bg-white text-gray-700 border hover:bg-gray-50 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:shadow-md transition-all">Redbubble</button>
-        <button onclick="setFilter('amazon', this)" class="filter-btn bg-white text-gray-700 border hover:bg-gray-50 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:shadow-md transition-all">Amazon</button>
-        <button onclick="setFilter('behance', this)" class="filter-btn bg-white text-gray-700 border hover:bg-gray-50 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:shadow-md transition-all">Behance</button>
+        <button onclick="setFilter('all', this)" class="filter-btn active bg-gray-800 text-white px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">الكل</button>
+        <button onclick="setFilter('redbubble', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Redbubble</button>
+        <button onclick="setFilter('amazon', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Amazon</button>
+        <button onclick="setFilter('behance', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Behance</button>
     </div>
 
     <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-16">
         <div class="col-span-full flex justify-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>
     </div>
 
-    <!-- ============================================ -->
-    <!-- 2. نموذج طلب تصميم (الدخل النشط)            -->
-    <!-- ============================================ -->
+    <!-- القسم 4: نموذج الطلب (الدخل النشط) -->
     <div id="request-form" class="bg-gray-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
         <div class="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full filter blur-3xl opacity-20 -mr-20 -mt-20"></div>
         <div class="relative z-10 max-w-2xl mx-auto text-center">
             <h2 class="text-3xl md:text-4xl font-black mb-4">هل لديك فكرة خاصة؟</h2>
-            <p class="text-gray-400 mb-8 text-lg">حول فكرتك إلى تصميم احترافي. املأ النموذج وسيصل طلبك مباشرة إلينا.</p>
+            <p class="text-gray-400 mb-8 text-lg">حول فكرتك إلى تصميم احترافي.</p>
             
-            <!-- استبدل الرابط في action برابطك من Formspree -->
             <form action="https://formspree.io/f/xjgvbyay" method="POST" class="space-y-4 text-right">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" name="name" placeholder="الاسم الكريم" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition">
-                    <input type="email" name="email" placeholder="البريد الإلكتروني" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition">
+                    <input type="text" name="name" placeholder="الاسم" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none">
+                    <input type="email" name="email" placeholder="البريد الإلكتروني" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none">
                 </div>
-                <select name="service_type" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition">
-                    <option value="tshirt">تصميم تيشيرت (T-Shirt)</option>
-                    <option value="logo">شعار (Logo)</option>
-                    <option value="social">تصميم سوشيال ميديا</option>
-                    <option value="other">أخرى</option>
+                <select name="service_type" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none">
+                    <option value="tshirt">تصميم تيشيرت</option>
+                    <option value="logo">شعار</option>
+                    <option value="social">سوشيال ميديا</option>
                 </select>
-                <textarea name="message" rows="4" placeholder="اشرح فكرتك بالتفصيل..." required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 focus:outline-none transition"></textarea>
-                
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-lg hover:shadow-green-500/30 transition transform hover:-translate-y-1">
-                    إرسال الطلب 🚀
-                </button>
+                <textarea name="message" rows="4" placeholder="تفاصيل الفكرة..." required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none"></textarea>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-lg transition transform hover:-translate-y-1">إرسال الطلب 🚀</button>
             </form>
         </div>
     </div>
@@ -256,13 +289,12 @@
 
   <footer class="text-center py-8 text-gray-400 text-sm border-t bg-white mt-12 mb-16">
     <div class="mb-2"><img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-8 h-8 rounded-full mx-auto opacity-50 grayscale hover:grayscale-0 transition-all"></div>
-    <p>&copy; 2025 HYPE NET.</p>
+    <p>&copy; 2026 HYPE NET.</p>
   </footer>
 
-  <!-- زر واتساب العائم -->
   <div class="whatsapp-float">
-    <a href="https://wa.me/966555110254" target="_blank" title="تواصل معنا على واتساب" class="whatsapp-icon">
-      <svg viewBox="0 0 32 32"><path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.49 0-.143-.73-2.09-.932-2.535-.152-.33-.248-.396-.395-.292-.248.17-1.06.67-1.308 1.353-.264.722-.293 1.25.048 2.054.494 1.163 2.105 4.098 5.673 6.082 3.193 1.776 3.65 1.577 4.254 1.48.51-.082 1.402-.544 1.767-1.344.252-.553.308-1.543.14-1.635-.372-.202-1.565-.95-1.565-.95zM16.035 2.508c-7.445 0-13.502 6.057-13.502 13.502 0 2.392.625 4.654 1.71 6.643L2.5 29.5l6.99-1.787c1.92.99 4.108 1.55 6.435 1.55 7.445 0 13.502-6.057 13.502-13.502S23.48 2.508 16.035 2.508z" fill-rule="evenodd"></path></svg>
+    <a href="https://wa.me/966555110254" target="_blank" class="whatsapp-icon">
+      <svg viewBox="0 0 32 32"><path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.1c-.802-.402-1.504-.817-2.163-1.447-.545-.516-1.146-1.29-1.46-1.963a.426.426 0 0 1-.073-.215c0-.33.99-.945.99-1.49 0-.143-.73-2.09-.932-2.535-.152-.33-.248-.396-.395-.292-.248.17-1.06.67-1.308 1.353-.264.722-.293 1.25.048 2.054.494 1.163 2.105 4.098 5.673 6.082 3.193 1.776 3.65 1.577 4.254 1.48.51-.082 1.402-.544 1.767-1.344.252-.553.308-1.543.14-1.635-.372-.202-1.565-.95-1.565-.95zM16.035 2.508c-7.445 0-13.502 6.057-13.502 13.502 0 2.392.625 4.654 1.71 6.643L2.5 29.5l6.99-1.787c1.92.99 4.108 1.55 6.435 1.55 7.445 0 13.502-6.057 13.502-13.502S23.48 2.508 16.035 2.508z" fill-rule="evenodd" fill="white"></path></svg>
     </a>
   </div>
 

@@ -3,19 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HYPE NET — Admin Secure</title>
+  <title>HYPE NET — Store Admin</title>
   
   <link rel="icon" href="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" type="image/jpeg">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
     body{font-family:'Tajawal',sans-serif;background:#f3f4f6;}
-    
-    /* شاشة القفل - قمنا بإزالة display: flex من هنا لنتحكم بها عبر الكلاسات */
     #login-overlay {position: fixed; inset: 0; background: #111827; z-index: 9999; color: white;}
-    
     .section-title { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; color: #374151; font-weight: bold; font-size: 1.25rem; }
-    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #16a34a; width: 24px; height: 24px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #16a34a; width: 24px; height: 24px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 
@@ -24,7 +21,6 @@
     window.__firebase_config = JSON.stringify({"apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc", "authDomain": "hype-net-display-page.firebaseapp.com", "projectId": "hype-net-display-page", "storageBucket": "hype-net-display-page.firebasestorage.app", "messagingSenderId": "505174394261", "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c", "measurementId": "G-M7YWJKGP62"});
   </script>
 
-  <!-- نستخدم إصداراً مستقراً (10.13.1) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
@@ -36,38 +32,24 @@
     const auth = getAuth(app);
     const appId = "hype-net-display-page";
 
-    // ==========================================
-    //       نظام الحماية والمراقبة
-    // ==========================================
-    
     onAuthStateChanged(auth, (user) => {
         const overlay = document.getElementById('login-overlay');
         const content = document.getElementById('admin-content');
-        
         if (user) {
-            // المستخدم مسجل دخول
-            console.log("User is logged in:", user.email);
-            
-            // الحل الجذري: إخفاء الشاشة عبر الستايل المباشر
             overlay.style.display = 'none';
             content.classList.remove('hidden');
-            
             document.getElementById('current-user-email').innerText = user.email;
-            
-            // بدء تحميل البيانات
-            loadDataWithProtection();
+            loadData();
         } else {
-            // المستخدم غير مسجل
-            overlay.style.display = 'flex'; // إعادة إظهارها
+            overlay.style.display = 'flex';
             overlay.classList.remove('hidden');
             content.classList.add('hidden');
         }
     });
 
-    // دالة مجمعة لتحميل البيانات مع التقاط أخطاء الصلاحيات
-    function loadDataWithProtection() {
+    function loadData() {
         loadLinks();
-        loadProducts();
+        loadStoreProducts(); // تم تغيير هذه الدالة لتناسب المتجر
         loadPortfolio();
     }
 
@@ -77,40 +59,22 @@
       const btn = document.getElementById('login-btn');
       const err = document.getElementById('login-error');
 
-      if(!email || !pass) {
-          err.innerText = "الرجاء إدخال البيانات كاملة";
-          return;
-      }
+      if(!email || !pass) { err.innerText = "أدخل البيانات كاملة"; return; }
 
       try {
-          // تغيير شكل الزر ليدل على التحميل
-          btn.innerHTML = '<div class="flex justify-center items-center gap-2"><div class="loader"></div> جاري التحقق...</div>';
-          btn.disabled = true;
-          
+          btn.innerHTML = '<div class="loader mx-auto"></div>';
           await signInWithEmailAndPassword(auth, email, pass);
-          // لا نحتاج لكود هنا، لأن onAuthStateChanged سيعمل تلقائياً
       } catch (error) {
-          // إعادة الزر لحالته الطبيعية عند الخطأ
-          btn.innerHTML = 'دخول آمن';
-          btn.disabled = false;
-          
-          console.error("Login Error:", error);
-          
-          if(error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-              err.innerText = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
-          } else if (error.code === 'auth/too-many-requests') {
-              err.innerText = "تم حظر الدخول مؤقتاً لكثرة المحاولات. حاول لاحقاً.";
-          } else if (error.code === 'auth/network-request-failed') {
-             err.innerText = "فشل الاتصال بالشبكة. تحقق من الإنترنت.";
+          btn.innerText = "دخول آمن";
+          if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+              err.innerText = "بيانات الدخول غير صحيحة";
           } else {
-              err.innerText = "حدث خطأ: " + error.message;
+              err.innerText = "خطأ: " + error.message;
           }
       }
     }
 
-    window.performLogout = function() {
-        signOut(auth).then(() => window.location.reload());
-    }
+    window.performLogout = function() { signOut(auth).then(() => window.location.reload()); }
 
     const sanitizeUrl = (url) => {
         if (!url) return '';
@@ -121,50 +85,61 @@
         return cleanUrl;
     };
 
-    // --- الوظائف الإدارية ---
-    // قمت بإضافة (error callback) لكل دالة onSnapshot لمعرفة إذا كانت القواعد تمنعك
-
-    // 1. الروابط
+    // 1. الروابط العامة
     async function addLink(){
       const title = document.getElementById('link-title').value.trim();
       const url = sanitizeUrl(document.getElementById('link-url').value);
       if(!title || !url) return alert('البيانات ناقصة');
-      try {
-        await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
-        document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
-      } catch(e) { alert("فشل الإضافة: " + e.message + "\nتأكد من صلاحيات القواعد (Rules)."); }
+      await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
+      document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
     }
-
     function loadLinks(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc')), 
-        (snap)=>{
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc')), (snap)=>{
             const box = document.getElementById('links-container'); box.innerHTML='';
             snap.forEach(d => createItemElement(d, box, 'links'));
-        }, 
-        (error) => console.error("Error loading links:", error));
+        });
     }
 
-    // 2. المنتجات
-    async function addProduct(){
-      const title = document.getElementById('product-title').value.trim();
-      const url = sanitizeUrl(document.getElementById('product-url').value);
-      if(!title || !url) return alert('البيانات ناقصة');
-      try {
-        await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
-        document.getElementById('product-title').value=''; document.getElementById('product-url').value='';
-      } catch(e) { alert("فشل الإضافة: " + e.message); }
+    // 2. المتجر (Store Products) - المعدل
+    async function addStoreProduct(){
+      const title = document.getElementById('prod-title').value.trim();
+      const price = document.getElementById('prod-price').value.trim();
+      const url = sanitizeUrl(document.getElementById('prod-url').value); // رابط الدفع
+      const img = sanitizeUrl(document.getElementById('prod-img').value); // رابط الصورة
+
+      if(!title || !price || !url || !img) return alert('جميع حقول المتجر مطلوبة (السعر، الصورة، الرابط)');
+      
+      await addDoc(collection(db, `artifacts/${appId}/public/data/store_products`), { 
+          title, price, url, img, timestamp: serverTimestamp() 
+      });
+      
+      document.getElementById('prod-title').value=''; 
+      document.getElementById('prod-price').value='';
+      document.getElementById('prod-url').value='';
+      document.getElementById('prod-img').value='';
     }
 
-    function loadProducts(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/products`), orderBy('timestamp','desc')), 
-        (snap)=>{
-            const box = document.getElementById('products-container'); box.innerHTML='';
-            snap.forEach(d => createItemElement(d, box, 'products'));
-        },
-        (error) => console.error("Error loading products:", error));
+    function loadStoreProducts(){
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/store_products`), orderBy('timestamp','desc')), (snap)=>{
+            const box = document.getElementById('store-container'); box.innerHTML='';
+            snap.forEach(d => {
+                const item = d.data();
+                const el = document.createElement('div');
+                el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200 mb-2';
+                el.innerHTML = `
+                    <img src="${item.img}" class="w-12 h-12 object-cover rounded bg-gray-100">
+                    <div class="flex-1">
+                        <div class="font-bold text-sm">${item.title}</div>
+                        <div class="text-green-600 font-bold text-xs">$${item.price}</div>
+                    </div>
+                    <button class="text-red-500 font-bold px-2" onclick="deleteItem('store_products', '${d.id}')">X</button>
+                `;
+                box.appendChild(el);
+            });
+        });
     }
 
-    // 3. المعرض
+    // 3. المعرض (Portfolio)
     async function addPortfolio(){
       const title = document.getElementById('port-title').value.trim();
       const url = sanitizeUrl(document.getElementById('port-url').value);
@@ -172,128 +147,102 @@
       const platform = document.getElementById('port-platform').value;
 
       if(!title || !url || !img) return alert('البيانات ناقصة');
-      try {
-        await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
-        document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
-      } catch(e) { alert("فشل الإضافة: " + e.message); }
+      await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
+      document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
     }
-
     function loadPortfolio(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp','desc')), 
-        (snap)=>{
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp','desc')), (snap)=>{
             const box = document.getElementById('portfolio-container'); box.innerHTML='';
             snap.forEach(d => {
                 const item = d.data();
                 const el = document.createElement('div');
-                el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200';
+                el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200 mb-2';
                 el.innerHTML = `
-                    <img src="${item.img}" class="w-12 h-12 object-cover rounded" onerror="this.src='https://via.placeholder.com/50?text=Err'">
+                    <img src="${item.img}" class="w-12 h-12 object-cover rounded bg-gray-100">
                     <div class="flex-1">
                         <div class="font-bold text-sm">${item.title}</div>
-                        <div class="text-xs text-blue-600 truncate max-w-[150px]">${item.url}</div>
-                        <div class="text-[10px] text-gray-500 badge-${item.platform}">${item.platform}</div>
+                        <div class="text-[10px] text-gray-500">${item.platform}</div>
                     </div>
-                    <button class="text-red-500 text-sm font-bold bg-red-50 p-2 rounded hover:bg-red-100" onclick="deleteItem('portfolio', '${d.id}')">حذف</button>
+                    <button class="text-red-500 font-bold px-2" onclick="deleteItem('portfolio', '${d.id}')">X</button>
                 `;
                 box.appendChild(el);
             });
-        },
-        (error) => console.error("Error loading portfolio:", error));
+        });
     }
 
-    function createItemElement(docData, container, collectionName) {
+    function createItemElement(docData, container, colName) {
         const item = docData.data();
         const el = document.createElement('div');
         el.className = 'bg-gray-50 p-2 rounded flex justify-between items-center mb-2 border';
-        el.innerHTML = `
-            <div class="flex flex-col overflow-hidden">
-                <span class="font-bold">${item.title}</span>
-                <span class="text-xs text-gray-400 truncate">${item.url}</span>
-            </div> 
-            <button class="text-red-500 font-bold shrink-0 mr-2" onclick="deleteItem('${collectionName}', '${docData.id}')">X</button>`;
+        el.innerHTML = `<span class="font-bold text-sm truncate w-2/3">${item.title}</span> <button class="text-red-500 font-bold" onclick="deleteItem('${colName}', '${docData.id}')">X</button>`;
         container.appendChild(el);
     }
 
     window.addLink = addLink;
-    window.addProduct = addProduct;
+    window.addStoreProduct = addStoreProduct;
     window.addPortfolio = addPortfolio;
-    window.deleteItem = async (col, id) => { 
-        if(confirm('هل أنت متأكد من الحذف؟')) {
-            try {
-                await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); 
-            } catch(e) { alert("فشل الحذف: قد لا تملك صلاحية."); }
-        }
-    };
+    window.deleteItem = async (col, id) => { if(confirm('حذف العنصر؟')) await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); };
   </script>
 </head>
 <body class="bg-gray-100 pb-20">
 
-  <!-- شاشة تسجيل الدخول الجديدة -->
-  <!-- لاحظ: نستخدم flex هنا ككلاس وليس في الستايل، لكي نتمكن من إخفائها لاحقاً -->
   <div id="login-overlay" class="flex flex-col items-center justify-center">
     <div class="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-4 relative">
       <div class="text-center mb-8">
           <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-green-500">
-          <h2 class="text-3xl font-bold text-white">Admin Portal</h2>
-          <p class="text-gray-400 text-sm mt-2">يرجى تسجيل الدخول للمتابعة</p>
+          <h2 class="text-3xl font-bold text-white">Store Manager</h2>
       </div>
-      
       <div class="space-y-4">
-          <div>
-              <label class="block text-gray-400 text-sm mb-1">البريد الإلكتروني</label>
-              <input type="email" id="admin-email" placeholder="name@example.com" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white focus:border-green-500 focus:outline-none transition-colors">
-          </div>
-          <div>
-              <label class="block text-gray-400 text-sm mb-1">كلمة المرور</label>
-              <input type="password" id="admin-password" placeholder="••••••••" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white focus:border-green-500 focus:outline-none transition-colors">
-          </div>
-          <div id="login-error" class="text-red-500 text-sm text-center min-h-[20px] font-bold"></div>
-          <button id="login-btn" onclick="performLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow-lg transition-all transform hover:scale-[1.02]">دخول آمن</button>
+          <input type="email" id="admin-email" placeholder="Email" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-center">
+          <input type="password" id="admin-password" placeholder="Password" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-center">
+          <div id="login-error" class="text-red-500 text-sm text-center font-bold"></div>
+          <button id="login-btn" onclick="performLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold">دخول</button>
       </div>
-      <p class="text-gray-500 text-xs text-center mt-6">Secure Access via Google Firebase Auth</p>
     </div>
   </div>
 
-  <!-- المحتوى الإداري (مخفي افتراضياً) -->
-  <div id="admin-content" class="max-w-4xl mx-auto p-4 hidden">
-    
+  <div id="admin-content" class="max-w-5xl mx-auto p-4 hidden">
     <div class="flex justify-between items-center mt-4 mb-8">
         <h1 class="text-3xl font-black text-gray-800">لوحة التحكم</h1>
         <div class="flex items-center gap-3">
-            <span id="current-user-email" class="text-xs text-gray-500 bg-white px-3 py-1 rounded-full border shadow-sm"></span>
-            <button onclick="performLogout()" class="bg-red-50 text-red-600 px-4 py-2 rounded text-sm font-bold border border-red-100 hover:bg-red-100">خروج</button>
+            <span id="current-user-email" class="text-xs text-gray-500 bg-white px-3 py-1 rounded-full border"></span>
+            <button onclick="performLogout()" class="bg-red-50 text-red-600 px-4 py-2 rounded text-sm font-bold hover:bg-red-100">خروج</button>
         </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        <!-- القسم 1: الروابط العامة -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
+        <!-- 1. الروابط العامة -->
+        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-gray-600">
             <h2 class="section-title">1. الروابط العامة (Links)</h2>
             <div class="space-y-3 mb-4">
                 <input id="link-title" placeholder="عنوان الرابط" class="w-full p-2 border rounded">
-                <input id="link-url" placeholder="الرابط URL" class="w-full p-2 border rounded">
-                <button onclick="addLink()" class="w-full bg-gray-700 text-white p-2 rounded">أضف رابط</button>
+                <input id="link-url" placeholder="URL" class="w-full p-2 border rounded">
+                <button onclick="addLink()" class="w-full bg-gray-700 text-white p-2 rounded hover:bg-gray-800">أضف رابط</button>
             </div>
-            <div id="links-container" class="text-sm space-y-2 max-h-[300px] overflow-y-auto"></div>
+            <div id="links-container" class="max-h-[250px] overflow-y-auto"></div>
         </div>
 
-        <!-- القسم 2: المنتجات النصية -->
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h2 class="section-title">2. المنتجات (Products)</h2>
+        <!-- 2. منتجات المتجر (الجديد) -->
+        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-600">
+            <h2 class="section-title text-blue-800">2. منتجات للبيع (Store) 🛒</h2>
             <div class="space-y-3 mb-4">
-                <input id="product-title" placeholder="اسم المنتج" class="w-full p-2 border rounded">
-                <input id="product-url" placeholder="رابط المنتج" class="w-full p-2 border rounded">
-                <button onclick="addProduct()" class="w-full bg-gray-700 text-white p-2 rounded">أضف منتج</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="prod-title" placeholder="اسم المنتج" class="p-2 border rounded">
+                    <input id="prod-price" type="number" placeholder="السعر ($)" class="p-2 border rounded">
+                </div>
+                <input id="prod-img" placeholder="رابط الصورة (Preview)" class="w-full p-2 border rounded">
+                <input id="prod-url" placeholder="رابط الدفع (PayPal)" class="w-full p-2 border rounded">
+                <button onclick="addStoreProduct()" class="w-full bg-blue-600 text-white p-2 rounded font-bold hover:bg-blue-700">نشر في المتجر</button>
             </div>
-            <div id="products-container" class="text-sm space-y-2 max-h-[300px] overflow-y-auto"></div>
+            <div id="store-container" class="max-h-[250px] overflow-y-auto"></div>
         </div>
 
     </div>
 
-    <!-- القسم 3: معرض التصاميم (الجديد) -->
-    <div class="bg-white p-6 rounded-xl shadow-md mt-6 border-2 border-green-500">
-        <h2 class="section-title text-green-700">3. معرض التصاميم والصور (Portfolio) ✨ جديد</h2>
+    <!-- 3. معرض الأعمال -->
+    <div class="bg-white p-6 rounded-xl shadow-md mt-6 border-t-4 border-green-500">
+        <h2 class="section-title text-green-700">3. معرض الأعمال (Portfolio) 🎨</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <input id="port-title" placeholder="اسم التصميم" class="p-2 border rounded">
             <select id="port-platform" class="p-2 border rounded bg-gray-50">
@@ -302,11 +251,10 @@
                 <option value="behance">Behance</option>
                 <option value="other">أخرى</option>
             </select>
-            <input id="port-url" placeholder="رابط الشراء" class="p-2 border rounded">
+            <input id="port-url" placeholder="رابط خارجي" class="p-2 border rounded">
             <input id="port-img" placeholder="رابط الصورة" class="p-2 border rounded">
         </div>
-        <button onclick="addPortfolio()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow">نشر التصميم في المعرض</button>
-        
+        <button onclick="addPortfolio()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold">نشر في المعرض</button>
         <div id="portfolio-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6"></div>
     </div>
 
