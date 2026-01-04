@@ -3,22 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HYPE NET — Store Admin</title>
+  <title>HYPE NET — لوحة التحكم الآمنة</title>
   
   <link rel="icon" href="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" type="image/jpeg">
+  <!-- استخدام Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- خط Tajawal -->
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
-    body{font-family:'Tajawal',sans-serif;background:#f3f4f6;}
-    #login-overlay {position: fixed; inset: 0; background: #111827; z-index: 9999; color: white;}
-    .section-title { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; color: #374151; font-weight: bold; font-size: 1.25rem; }
-    .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #16a34a; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
+    
+    body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+    
+    /* حركة التحميل */
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 3px solid #16a34a;
+      width: 20px;
+      height: 20px;
+      animation: spin 0.8s linear infinite;
+    }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* تحسينات الواجهة */
+    .card-hover { transition: all 0.2s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    
+    /* طبقة تسجيل الدخول */
+    #auth-overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background-color: #111827;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.3s ease;
+    }
+
+    /* التنبيهات (Toasts) */
+    #toast-container { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+    .toast { 
+      background: white; padding: 12px 20px; border-radius: 8px; 
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-right: 4px solid; 
+      animation: slideIn 0.3s ease-out; font-weight: bold; min-width: 250px;
+    }
+    .toast.success { border-color: #16a34a; color: #166534; }
+    .toast.error { border-color: #dc2626; color: #991b1b; }
+    @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 
+  <!-- إعدادات Firebase -->
   <script>
+    window.__firebase_config = JSON.stringify({
+      "apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc",
+      "authDomain": "hype-net-display-page.firebaseapp.com",
+      "projectId": "hype-net-display-page",
+      "storageBucket": "hype-net-display-page.firebasestorage.app",
+      "messagingSenderId": "505174394261",
+      "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c",
+      "measurementId": "G-M7YWJKGP62"
+    });
     window.__app_id = "hype-net-display-page";
-    window.__firebase_config = JSON.stringify({"apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc", "authDomain": "hype-net-display-page.firebaseapp.com", "projectId": "hype-net-display-page", "storageBucket": "hype-net-display-page.firebasestorage.app", "messagingSenderId": "505174394261", "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c", "measurementId": "G-M7YWJKGP62"});
   </script>
 
   <script type="module">
@@ -26,238 +68,395 @@
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
+    // 1. تهيئة Firebase
     const config = JSON.parse(__firebase_config);
     const app = initializeApp(config);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    const appId = "hype-net-display-page";
+    const appId = window.__app_id; // استخدام المعرف الصحيح
 
+    // حالة التطبيق
+    let currentUser = null;
+
+    // 2. إدارة المستخدمين
     onAuthStateChanged(auth, (user) => {
-        const overlay = document.getElementById('login-overlay');
-        const content = document.getElementById('admin-content');
+        const overlay = document.getElementById('auth-overlay');
+        const mainContent = document.getElementById('main-content');
+        
         if (user) {
-            overlay.style.display = 'none';
-            content.classList.remove('hidden');
-            document.getElementById('current-user-email').innerText = user.email;
-            loadData();
+            currentUser = user;
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            mainContent.classList.remove('hidden');
+            document.getElementById('user-email-display').textContent = user.email;
+            initDataListeners();
         } else {
+            currentUser = null;
             overlay.style.display = 'flex';
-            overlay.classList.remove('hidden');
-            content.classList.add('hidden');
+            overlay.style.opacity = '1';
+            mainContent.classList.add('hidden');
         }
     });
 
-    function loadData() {
-        loadLinks();
-        loadStoreProducts(); // تم تغيير هذه الدالة لتناسب المتجر
-        loadPortfolio();
-    }
+    // تسجيل الدخول
+    window.handleLogin = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email-input').value;
+        const password = document.getElementById('password-input').value;
+        const btn = document.getElementById('login-btn');
+        const err = document.getElementById('login-error');
 
-    window.performLogin = async function() {
-      const email = document.getElementById('admin-email').value;
-      const pass = document.getElementById('admin-password').value;
-      const btn = document.getElementById('login-btn');
-      const err = document.getElementById('login-error');
-
-      if(!email || !pass) { err.innerText = "أدخل البيانات كاملة"; return; }
-
-      try {
-          btn.innerHTML = '<div class="loader mx-auto"></div>';
-          await signInWithEmailAndPassword(auth, email, pass);
-      } catch (error) {
-          btn.innerText = "دخول آمن";
-          if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-              err.innerText = "بيانات الدخول غير صحيحة";
-          } else {
-              err.innerText = "خطأ: " + error.message;
-          }
-      }
-    }
-
-    window.performLogout = function() { signOut(auth).then(() => window.location.reload()); }
-
-    const sanitizeUrl = (url) => {
-        if (!url) return '';
-        let cleanUrl = url.trim();
-        if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-            cleanUrl = 'https://' + cleanUrl;
+        if (!email || !password) {
+            err.textContent = "الرجاء إدخال البريد وكلمة المرور";
+            return;
         }
-        return cleanUrl;
+
+        try {
+            btn.innerHTML = '<div class="loader mx-auto"></div>';
+            btn.disabled = true;
+            await signInWithEmailAndPassword(auth, email, password);
+            // سيتم التعامل مع النجاح عبر onAuthStateChanged
+        } catch (error) {
+            btn.textContent = "تسجيل الدخول";
+            btn.disabled = false;
+            console.error(error);
+            if (error.code.includes('invalid') || error.code.includes('wrong')) {
+                err.textContent = "بيانات الدخول غير صحيحة";
+            } else {
+                err.textContent = "حدث خطأ غير متوقع: " + error.code;
+            }
+        }
     };
 
-    // 1. الروابط العامة
-    async function addLink(){
-      const title = document.getElementById('link-title').value.trim();
-      const url = sanitizeUrl(document.getElementById('link-url').value);
-      if(!title || !url) return alert('البيانات ناقصة');
-      await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
-      document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
-    }
-    function loadLinks(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp','desc')), (snap)=>{
-            const box = document.getElementById('links-container'); box.innerHTML='';
-            snap.forEach(d => createItemElement(d, box, 'links'));
+    // تسجيل الخروج
+    window.handleLogout = () => {
+        if(confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+            signOut(auth).then(() => window.location.reload());
+        }
+    };
+
+    // 3. أدوات مساعدة (Helpers)
+    const sanitizeUrl = (url) => {
+        if (!url) return '';
+        let clean = url.trim();
+        if (!clean.match(/^https?:\/\//i)) {
+            clean = 'https://' + clean;
+        }
+        return clean;
+    };
+
+    const showToast = (msg, type = 'success') => {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    };
+
+    // دالة إنشاء العناصر الآمنة (تمنع XSS)
+    const createSafeElement = (tag, classes, text = '') => {
+        const el = document.createElement(tag);
+        if (classes) el.className = classes;
+        if (text) el.textContent = text;
+        return el;
+    };
+
+    // 4. إدارة البيانات (CRUD)
+
+    // --- الروابط (Links) ---
+    window.addLink = async () => {
+        const titleIn = document.getElementById('link-title');
+        const urlIn = document.getElementById('link-url');
+        
+        if (!titleIn.value.trim() || !urlIn.value.trim()) return showToast('جميع الحقول مطلوبة', 'error');
+
+        try {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/links`), {
+                title: titleIn.value.trim(),
+                url: sanitizeUrl(urlIn.value),
+                timestamp: serverTimestamp()
+            });
+            titleIn.value = ''; urlIn.value = '';
+            showToast('تمت إضافة الرابط بنجاح');
+        } catch (err) {
+            showToast('خطأ في الإضافة: ' + err.message, 'error');
+        }
+    };
+
+    // --- المتجر (Store) ---
+    window.addStoreProduct = async () => {
+        const title = document.getElementById('prod-title').value.trim();
+        const price = document.getElementById('prod-price').value.trim();
+        const url = document.getElementById('prod-url').value;
+        const img = document.getElementById('prod-img').value;
+
+        if (!title || !price || !url || !img) return showToast('جميع بيانات المنتج مطلوبة', 'error');
+        if (isNaN(price) || Number(price) < 0) return showToast('السعر يجب أن يكون رقمًا صحيحًا', 'error');
+
+        try {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/store_products`), {
+                title, price, 
+                url: sanitizeUrl(url), 
+                img: sanitizeUrl(img),
+                timestamp: serverTimestamp()
+            });
+            // تصفير الحقول
+            ['prod-title', 'prod-price', 'prod-url', 'prod-img'].forEach(id => document.getElementById(id).value = '');
+            showToast('تم نشر المنتج في المتجر');
+        } catch (err) {
+            showToast('فشل النشر: ' + err.message, 'error');
+        }
+    };
+
+    // --- المعرض (Portfolio) ---
+    window.addPortfolio = async () => {
+        const title = document.getElementById('port-title').value.trim();
+        const platform = document.getElementById('port-platform').value;
+        const url = document.getElementById('port-url').value;
+        const img = document.getElementById('port-img').value;
+
+        if (!title || !url || !img) return showToast('بيانات العمل ناقصة', 'error');
+
+        try {
+            await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), {
+                title, platform,
+                url: sanitizeUrl(url),
+                img: sanitizeUrl(img),
+                timestamp: serverTimestamp()
+            });
+            ['port-title', 'port-url', 'port-img'].forEach(id => document.getElementById(id).value = '');
+            showToast('تمت إضافة العمل للمعرض');
+        } catch (err) {
+            showToast('خطأ: ' + err.message, 'error');
+        }
+    };
+
+    // الحذف العام
+    window.deleteItem = async (col, id) => {
+        // استخدام Confirm الأصلي هنا مقبول للسرعة، أو يمكن بناء مودال مخصص
+        if(confirm('هل أنت متأكد من حذف هذا العنصر نهائياً؟')) {
+            try {
+                await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id));
+                showToast('تم الحذف بنجاح');
+            } catch (err) {
+                showToast('لا تملك صلاحية الحذف أو حدث خطأ', 'error');
+            }
+        }
+    };
+
+    // 5. تحميل البيانات (Real-time Listeners)
+    function initDataListeners() {
+        // تحميل الروابط
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp', 'desc')), (snap) => {
+            const container = document.getElementById('links-list');
+            container.innerHTML = '';
+            snap.forEach(doc => {
+                const item = doc.data();
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-gray-50 p-3 rounded border hover:bg-gray-100";
+                
+                // استخدام textContent للحماية من XSS
+                const titleSpan = createSafeElement('span', 'font-medium text-gray-700 truncate', item.title);
+                
+                const delBtn = createSafeElement('button', 'text-red-500 hover:text-red-700 font-bold px-2', 'حذف');
+                delBtn.onclick = () => window.deleteItem('links', doc.id);
+
+                div.appendChild(titleSpan);
+                div.appendChild(delBtn);
+                container.appendChild(div);
+            });
         });
-    }
 
-    // 2. المتجر (Store Products) - المعدل
-    async function addStoreProduct(){
-      const title = document.getElementById('prod-title').value.trim();
-      const price = document.getElementById('prod-price').value.trim();
-      const url = sanitizeUrl(document.getElementById('prod-url').value); // رابط الدفع
-      const img = sanitizeUrl(document.getElementById('prod-img').value); // رابط الصورة
+        // تحميل المتجر
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/store_products`), orderBy('timestamp', 'desc')), (snap) => {
+            const container = document.getElementById('store-list');
+            container.innerHTML = '';
+            snap.forEach(doc => {
+                const item = doc.data();
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 bg-white p-3 rounded-lg border shadow-sm mb-2";
 
-      if(!title || !price || !url || !img) return alert('جميع حقول المتجر مطلوبة (السعر، الصورة، الرابط)');
-      
-      await addDoc(collection(db, `artifacts/${appId}/public/data/store_products`), { 
-          title, price, url, img, timestamp: serverTimestamp() 
-      });
-      
-      document.getElementById('prod-title').value=''; 
-      document.getElementById('prod-price').value='';
-      document.getElementById('prod-url').value='';
-      document.getElementById('prod-img').value='';
-    }
+                const img = document.createElement('img');
+                img.src = item.img;
+                img.className = "w-12 h-12 rounded object-cover bg-gray-200";
+                img.onerror = function() { this.src = 'https://via.placeholder.com/150?text=No+Img'; };
 
-    function loadStoreProducts(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/store_products`), orderBy('timestamp','desc')), (snap)=>{
-            const box = document.getElementById('store-container'); box.innerHTML='';
-            snap.forEach(d => {
-                const item = d.data();
-                const el = document.createElement('div');
-                el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200 mb-2';
-                el.innerHTML = `
-                    <img src="${item.img}" class="w-12 h-12 object-cover rounded bg-gray-100">
-                    <div class="flex-1">
-                        <div class="font-bold text-sm">${item.title}</div>
-                        <div class="text-green-600 font-bold text-xs">$${item.price}</div>
-                    </div>
-                    <button class="text-red-500 font-bold px-2" onclick="deleteItem('store_products', '${d.id}')">X</button>
-                `;
-                box.appendChild(el);
+                const infoDiv = document.createElement('div');
+                infoDiv.className = "flex-1 min-w-0";
+                
+                const titleDiv = createSafeElement('div', 'font-bold text-gray-800 text-sm truncate', item.title);
+                const priceDiv = createSafeElement('div', 'text-green-600 font-bold text-xs', `$${item.price}`);
+
+                infoDiv.appendChild(titleDiv);
+                infoDiv.appendChild(priceDiv);
+
+                const delBtn = createSafeElement('button', 'text-red-500 hover:bg-red-50 p-2 rounded', '🗑️');
+                delBtn.onclick = () => window.deleteItem('store_products', doc.id);
+
+                div.appendChild(img);
+                div.appendChild(infoDiv);
+                div.appendChild(delBtn);
+                container.appendChild(div);
+            });
+        });
+
+        // تحميل المعرض
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp', 'desc')), (snap) => {
+            const container = document.getElementById('portfolio-list');
+            container.innerHTML = '';
+            snap.forEach(doc => {
+                const item = doc.data();
+                const div = document.createElement('div');
+                div.className = "relative group overflow-hidden rounded-lg border bg-white shadow-sm";
+
+                const img = document.createElement('img');
+                img.src = item.img;
+                img.className = "w-full h-32 object-cover";
+                img.onerror = function() { this.src = 'https://via.placeholder.com/300?text=Error'; };
+
+                const infoOverlay = document.createElement('div');
+                infoOverlay.className = "absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white";
+                
+                const titleDiv = createSafeElement('div', 'font-bold text-xs truncate', item.title);
+                const platDiv = createSafeElement('div', 'text-[10px] text-gray-300', item.platform);
+
+                infoOverlay.appendChild(titleDiv);
+                infoOverlay.appendChild(platDiv);
+
+                const delBtn = createSafeElement('button', 'absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity', 'X');
+                delBtn.onclick = () => window.deleteItem('portfolio', doc.id);
+
+                div.appendChild(img);
+                div.appendChild(infoOverlay);
+                div.appendChild(delBtn);
+                container.appendChild(div);
             });
         });
     }
-
-    // 3. المعرض (Portfolio)
-    async function addPortfolio(){
-      const title = document.getElementById('port-title').value.trim();
-      const url = sanitizeUrl(document.getElementById('port-url').value);
-      const img = sanitizeUrl(document.getElementById('port-img').value);
-      const platform = document.getElementById('port-platform').value;
-
-      if(!title || !url || !img) return alert('البيانات ناقصة');
-      await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
-      document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
-    }
-    function loadPortfolio(){
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp','desc')), (snap)=>{
-            const box = document.getElementById('portfolio-container'); box.innerHTML='';
-            snap.forEach(d => {
-                const item = d.data();
-                const el = document.createElement('div');
-                el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200 mb-2';
-                el.innerHTML = `
-                    <img src="${item.img}" class="w-12 h-12 object-cover rounded bg-gray-100">
-                    <div class="flex-1">
-                        <div class="font-bold text-sm">${item.title}</div>
-                        <div class="text-[10px] text-gray-500">${item.platform}</div>
-                    </div>
-                    <button class="text-red-500 font-bold px-2" onclick="deleteItem('portfolio', '${d.id}')">X</button>
-                `;
-                box.appendChild(el);
-            });
-        });
-    }
-
-    function createItemElement(docData, container, colName) {
-        const item = docData.data();
-        const el = document.createElement('div');
-        el.className = 'bg-gray-50 p-2 rounded flex justify-between items-center mb-2 border';
-        el.innerHTML = `<span class="font-bold text-sm truncate w-2/3">${item.title}</span> <button class="text-red-500 font-bold" onclick="deleteItem('${colName}', '${docData.id}')">X</button>`;
-        container.appendChild(el);
-    }
-
-    window.addLink = addLink;
-    window.addStoreProduct = addStoreProduct;
-    window.addPortfolio = addPortfolio;
-    window.deleteItem = async (col, id) => { if(confirm('حذف العنصر؟')) await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); };
   </script>
 </head>
-<body class="bg-gray-100 pb-20">
+<body>
 
-  <div id="login-overlay" class="flex flex-col items-center justify-center">
-    <div class="w-full max-w-md p-8 bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 mx-4 relative">
-      <div class="text-center mb-8">
-          <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-green-500">
-          <h2 class="text-3xl font-bold text-white">Store Manager</h2>
+  <!-- حاوية الإشعارات -->
+  <div id="toast-container"></div>
+
+  <!-- شاشة تسجيل الدخول -->
+  <div id="auth-overlay">
+    <div class="w-full max-w-sm p-8 bg-gray-800 rounded-2xl shadow-2xl mx-4 text-center border border-gray-700">
+      <div class="mb-6">
+        <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-24 h-24 rounded-full mx-auto border-4 border-green-500 shadow-lg mb-4">
+        <h2 class="text-2xl font-black text-white">مدير المتجر</h2>
+        <p class="text-gray-400 text-sm mt-1">الوصول مقيد للمسؤولين فقط</p>
       </div>
-      <div class="space-y-4">
-          <input type="email" id="admin-email" placeholder="Email" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-center">
-          <input type="password" id="admin-password" placeholder="Password" class="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white text-center">
-          <div id="login-error" class="text-red-500 text-sm text-center font-bold"></div>
-          <button id="login-btn" onclick="performLogin()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold">دخول</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="admin-content" class="max-w-5xl mx-auto p-4 hidden">
-    <div class="flex justify-between items-center mt-4 mb-8">
-        <h1 class="text-3xl font-black text-gray-800">لوحة التحكم</h1>
-        <div class="flex items-center gap-3">
-            <span id="current-user-email" class="text-xs text-gray-500 bg-white px-3 py-1 rounded-full border"></span>
-            <button onclick="performLogout()" class="bg-red-50 text-red-600 px-4 py-2 rounded text-sm font-bold hover:bg-red-100">خروج</button>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <input id="email-input" type="email" placeholder="البريد الإلكتروني" class="w-full p-3 rounded-lg bg-gray-900 border border-gray-600 text-white focus:border-green-500 focus:outline-none text-center dir-ltr" required>
+        <input id="password-input" type="password" placeholder="كلمة المرور" class="w-full p-3 rounded-lg bg-gray-900 border border-gray-600 text-white focus:border-green-500 focus:outline-none text-center dir-ltr" required>
         
-        <!-- 1. الروابط العامة -->
-        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-gray-600">
-            <h2 class="section-title">1. الروابط العامة (Links)</h2>
-            <div class="space-y-3 mb-4">
-                <input id="link-title" placeholder="عنوان الرابط" class="w-full p-2 border rounded">
-                <input id="link-url" placeholder="URL" class="w-full p-2 border rounded">
-                <button onclick="addLink()" class="w-full bg-gray-700 text-white p-2 rounded hover:bg-gray-800">أضف رابط</button>
-            </div>
-            <div id="links-container" class="max-h-[250px] overflow-y-auto"></div>
-        </div>
-
-        <!-- 2. منتجات المتجر (الجديد) -->
-        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-600">
-            <h2 class="section-title text-blue-800">2. منتجات للبيع (Store) 🛒</h2>
-            <div class="space-y-3 mb-4">
-                <div class="grid grid-cols-2 gap-2">
-                    <input id="prod-title" placeholder="اسم المنتج" class="p-2 border rounded">
-                    <input id="prod-price" type="number" placeholder="السعر ($)" class="p-2 border rounded">
-                </div>
-                <input id="prod-img" placeholder="رابط الصورة (Preview)" class="w-full p-2 border rounded">
-                <input id="prod-url" placeholder="رابط الدفع (PayPal)" class="w-full p-2 border rounded">
-                <button onclick="addStoreProduct()" class="w-full bg-blue-600 text-white p-2 rounded font-bold hover:bg-blue-700">نشر في المتجر</button>
-            </div>
-            <div id="store-container" class="max-h-[250px] overflow-y-auto"></div>
-        </div>
-
+        <div id="login-error" class="text-red-400 text-sm font-bold min-h-[20px]"></div>
+        
+        <button id="login-btn" type="submit" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white p-3 rounded-lg font-bold shadow-lg transform transition active:scale-95">
+          تسجيل دخول آمن
+        </button>
+      </form>
     </div>
-
-    <!-- 3. معرض الأعمال -->
-    <div class="bg-white p-6 rounded-xl shadow-md mt-6 border-t-4 border-green-500">
-        <h2 class="section-title text-green-700">3. معرض الأعمال (Portfolio) 🎨</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <input id="port-title" placeholder="اسم التصميم" class="p-2 border rounded">
-            <select id="port-platform" class="p-2 border rounded bg-gray-50">
-                <option value="redbubble">Redbubble</option>
-                <option value="amazon">Amazon</option>
-                <option value="behance">Behance</option>
-                <option value="other">أخرى</option>
-            </select>
-            <input id="port-url" placeholder="رابط خارجي" class="p-2 border rounded">
-            <input id="port-img" placeholder="رابط الصورة" class="p-2 border rounded">
-        </div>
-        <button onclick="addPortfolio()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold">نشر في المعرض</button>
-        <div id="portfolio-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6"></div>
-    </div>
-
   </div>
+
+  <!-- المحتوى الرئيسي -->
+  <div id="main-content" class="max-w-6xl mx-auto p-4 hidden min-h-screen">
+    
+    <!-- الهيدر -->
+    <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-4 rounded-xl shadow-sm border">
+      <div class="flex items-center gap-3">
+        <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-10 h-10 rounded-full">
+        <div>
+          <h1 class="text-xl font-black text-gray-800">لوحة التحكم</h1>
+          <p class="text-xs text-gray-500">HYPE NET STORE MANAGER</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3 bg-gray-50 p-2 rounded-lg border">
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] text-gray-400">مسجل دخول بـ</span>
+          <span id="user-email-display" class="text-xs font-bold text-gray-700 font-mono">...</span>
+        </div>
+        <button onclick="handleLogout()" class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition">
+          خروج
+        </button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- العمود 1: الروابط -->
+      <section class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 h-fit lg:col-span-1">
+        <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+          <span class="bg-gray-200 p-1 rounded">🔗</span> الروابط العامة
+        </h2>
+        
+        <div class="space-y-3 mb-6 bg-gray-50 p-3 rounded-lg border">
+          <input id="link-title" placeholder="عنوان الرابط (مثلاً: تيك توك)" class="w-full p-2 text-sm border rounded focus:ring-2 ring-gray-200 outline-none">
+          <input id="link-url" placeholder="الرابط (URL)" class="w-full p-2 text-sm border rounded focus:ring-2 ring-gray-200 outline-none text-left" dir="ltr">
+          <button onclick="addLink()" class="w-full bg-gray-800 text-white py-2 rounded text-sm font-bold hover:bg-gray-900 transition">إضافة رابط</button>
+        </div>
+
+        <div id="links-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          <!-- سيتم تعبئة الروابط هنا -->
+        </div>
+      </section>
+
+      <!-- العمود 2: المتجر -->
+      <section class="bg-white p-5 rounded-xl shadow-sm border-t-4 border-blue-500 lg:col-span-1">
+        <h2 class="text-lg font-bold text-blue-800 mb-4 flex items-center gap-2">
+          <span class="bg-blue-100 p-1 rounded">🛒</span> المنتجات (Store)
+        </h2>
+        
+        <div class="space-y-3 mb-6 bg-blue-50 p-3 rounded-lg border border-blue-100">
+          <div class="flex gap-2">
+            <input id="prod-title" placeholder="اسم المنتج" class="w-2/3 p-2 text-sm border rounded">
+            <input id="prod-price" type="number" placeholder="$ السعر" class="w-1/3 p-2 text-sm border rounded">
+          </div>
+          <input id="prod-img" placeholder="رابط الصورة" class="w-full p-2 text-sm border rounded text-left" dir="ltr">
+          <input id="prod-url" placeholder="رابط الشراء (PayPal/Stripe)" class="w-full p-2 text-sm border rounded text-left" dir="ltr">
+          <button onclick="addStoreProduct()" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-bold hover:bg-blue-700 transition shadow">نشر المنتج</button>
+        </div>
+
+        <div id="store-list" class="max-h-[500px] overflow-y-auto pr-1">
+          <!-- قائمة المنتجات -->
+        </div>
+      </section>
+
+      <!-- العمود 3: المعرض -->
+      <section class="bg-white p-5 rounded-xl shadow-sm border-t-4 border-green-500 lg:col-span-1">
+        <h2 class="text-lg font-bold text-green-800 mb-4 flex items-center gap-2">
+          <span class="bg-green-100 p-1 rounded">🎨</span> المعرض (Portfolio)
+        </h2>
+        
+        <div class="space-y-3 mb-6 bg-green-50 p-3 rounded-lg border border-green-100">
+          <input id="port-title" placeholder="عنوان العمل الفني" class="w-full p-2 text-sm border rounded">
+          <select id="port-platform" class="w-full p-2 text-sm border rounded bg-white">
+            <option value="Redbubble">Redbubble</option>
+            <option value="Amazon">Amazon</option>
+            <option value="Behance">Behance</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Other">Other</option>
+          </select>
+          <input id="port-img" placeholder="رابط صورة العرض" class="w-full p-2 text-sm border rounded text-left" dir="ltr">
+          <input id="port-url" placeholder="رابط خارجي للمشروع" class="w-full p-2 text-sm border rounded text-left" dir="ltr">
+          <button onclick="addPortfolio()" class="w-full bg-green-600 text-white py-2 rounded text-sm font-bold hover:bg-green-700 transition shadow">إضافة للمعرض</button>
+        </div>
+
+        <div id="portfolio-list" class="grid grid-cols-2 gap-2 max-h-[500px] overflow-y-auto pr-1">
+          <!-- قائمة المعرض -->
+        </div>
+      </section>
+
+    </div>
+  </div>
+
 </body>
 </html>
