@@ -157,6 +157,16 @@
         }, 3000);
     };
 
+    // دالة مساعدة لمعالجة الأخطاء
+    const handleFirebaseError = (err, actionName) => {
+        console.error(err);
+        if (err.code === 'permission-denied') {
+            showToast(`عذراً، بريدك الإلكتروني ليس لديه صلاحية ${actionName}. راجع قواعد الحماية.`, 'error');
+        } else {
+            showToast(`فشل ${actionName}: ${err.message}`, 'error');
+        }
+    };
+
     // دالة إنشاء العناصر الآمنة (تمنع XSS)
     const createSafeElement = (tag, classes, text = '') => {
         const el = document.createElement(tag);
@@ -183,7 +193,7 @@
             titleIn.value = ''; urlIn.value = '';
             showToast('تمت إضافة الرابط بنجاح');
         } catch (err) {
-            showToast('خطأ في الإضافة: ' + err.message, 'error');
+            handleFirebaseError(err, 'إضافة الرابط');
         }
     };
 
@@ -208,7 +218,7 @@
             ['prod-title', 'prod-price', 'prod-url', 'prod-img'].forEach(id => document.getElementById(id).value = '');
             showToast('تم نشر المنتج في المتجر');
         } catch (err) {
-            showToast('فشل النشر: ' + err.message, 'error');
+            handleFirebaseError(err, 'نشر المنتج');
         }
     };
 
@@ -231,7 +241,7 @@
             ['port-title', 'port-url', 'port-img'].forEach(id => document.getElementById(id).value = '');
             showToast('تمت إضافة العمل للمعرض');
         } catch (err) {
-            showToast('خطأ: ' + err.message, 'error');
+            handleFirebaseError(err, 'إضافة العمل');
         }
     };
 
@@ -243,7 +253,7 @@
                 await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id));
                 showToast('تم الحذف بنجاح');
             } catch (err) {
-                showToast('لا تملك صلاحية الحذف أو حدث خطأ', 'error');
+                handleFirebaseError(err, 'الحذف');
             }
         }
     };
