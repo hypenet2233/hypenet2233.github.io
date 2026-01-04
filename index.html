@@ -12,19 +12,17 @@
   <link rel="icon" href="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" type="image/jpeg">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
     body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; color: #1f2937; }
     
     /* تأثيرات الحركة */
     .link-card { transition: all 0.2s ease-in-out; border: 1px solid #e5e7eb; }
-    .link-card:hover { transform: translateY(-3px); border-color: #47a563; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .link-card:hover { transform: translateY(-2px); border-color: #47a563; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
     
-    .portfolio-card { transition: all 0.3s ease; }
-    .portfolio-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #47a563; }
+    /* توحيد تأثيرات البطاقات */
+    .portfolio-card, .store-card { transition: all 0.3s ease; }
+    .portfolio-card:hover, .store-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08); border-color: #47a563; }
     
-    .store-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .store-card:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border-color: #2563eb; }
-
     /* الشارات */
     .badge-redbubble { background: #ffe4e6; color: #e11d48; }
     .badge-amazon { background: #fef3c7; color: #d97706; }
@@ -36,9 +34,9 @@
 
     /* واتساب */
     .whatsapp-float { position: fixed; bottom: 30px; left: 30px; z-index: 100; animation: pulse-green 2s infinite; }
-    .whatsapp-icon { width: 60px; height: 60px; background-color: #25d366; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
-    .whatsapp-icon:hover { transform: scale(1.1); }
-    .whatsapp-icon svg { width: 35px; height: 35px; fill: white; }
+    .whatsapp-icon { width: 55px; height: 55px; background-color: #25d366; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s ease; }
+    .whatsapp-icon:hover { transform: scale(1.05); }
+    .whatsapp-icon svg { width: 30px; height: 30px; fill: white; }
     @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); } }
     
     #error-banner { display: none; }
@@ -87,7 +85,6 @@
         return clean;
     };
 
-    // دالة إنشاء العناصر بشكل آمن (Security Helper)
     const createSafeElement = (tag, classes, text) => {
         const el = document.createElement(tag);
         if (classes) el.className = classes;
@@ -98,86 +95,53 @@
     function initApp() {
         console.log("جاري تحميل البيانات...");
         
-        // 1. تحميل الروابط (Links)
-        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp', 'desc')), (snap) => {
-            const container = document.getElementById('links-container');
-            container.innerHTML = '';
-            
-            if(snap.empty) { 
-                container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">لا توجد روابط حالياً</p>'; 
-                return; 
-            }
-
-            const fragment = document.createDocumentFragment();
-            snap.forEach(doc => {
-                const data = doc.data();
-                const a = document.createElement('a');
-                a.href = fixUrl(data.url);
-                a.target = "_blank";
-                a.className = "link-card bg-white p-4 rounded-lg shadow-sm flex items-center justify-between group no-underline";
-                
-                const span = createSafeElement('span', 'font-bold text-gray-800 group-hover:text-green-600 transition-colors', data.title);
-                const icon = document.createElement('div');
-                icon.innerHTML = `<svg class="h-5 w-5 text-gray-400 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>`;
-                
-                a.appendChild(span);
-                a.appendChild(icon);
-                fragment.appendChild(a);
-            });
-            container.appendChild(fragment);
-        });
-
-        // 2. تحميل المتجر (Store Products)
+        // 1. تحميل المتجر
         onSnapshot(query(collection(db, `artifacts/${appId}/public/data/store_products`), orderBy('timestamp', 'desc')), (snap) => {
             const container = document.getElementById('store-grid');
             container.innerHTML = '';
             
             if(snap.empty) { 
-                container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">سيتم إضافة منتجات حصرية قريباً..</div>'; 
+                container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-xs">لا توجد منتجات حالياً</div>'; 
                 return; 
             }
             
             const fragment = document.createDocumentFragment();
             snap.forEach(doc => {
                 const item = doc.data();
-                const safeImg = item.img || 'https://via.placeholder.com/400x300?text=Digital+Product';
+                const safeImg = item.img || 'https://via.placeholder.com/300x300?text=Product';
                 
                 const card = document.createElement('div');
-                card.className = "store-card bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col h-full shadow-sm";
+                card.className = "store-card bg-white rounded-lg overflow-hidden border border-gray-100 flex flex-col h-full shadow-sm group";
                 
-                // Image Section
                 const imgDiv = document.createElement('div');
-                imgDiv.className = "relative h-48 bg-gray-100 overflow-hidden group";
+                imgDiv.className = "relative aspect-square bg-white overflow-hidden border-b border-gray-50 p-2 flex items-center justify-center";
+                
                 const img = document.createElement('img');
                 img.src = safeImg;
-                img.className = "w-full h-full object-cover transition-transform duration-500 group-hover:scale-110";
-                img.onerror = function() { this.src='https://via.placeholder.com/400x300?text=Error'; };
+                img.className = "max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-110";
+                img.onerror = function() { this.src='https://via.placeholder.com/300x300?text=Error'; };
                 imgDiv.appendChild(img);
 
-                // Content Section
                 const contentDiv = document.createElement('div');
-                contentDiv.className = "p-5 flex flex-col flex-1";
+                contentDiv.className = "p-2.5 flex flex-col flex-1";
                 
-                const title = createSafeElement('h3', 'font-bold text-gray-900 text-lg mb-1 leading-tight', item.title);
-                const desc = createSafeElement('p', 'text-xs text-gray-500 mb-4', 'جودة عالية • تسليم فوري');
+                const title = createSafeElement('h3', 'font-bold text-gray-800 text-xs mb-1 leading-tight truncate', item.title);
                 
-                // Footer Section
                 const footer = document.createElement('div');
-                footer.className = "mt-auto flex items-center justify-between pt-4 border-t border-gray-50";
+                footer.className = "mt-auto flex items-center justify-between pt-2";
                 
-                const price = createSafeElement('span', 'text-xl font-black text-gray-900', `$${item.price}`);
+                const price = createSafeElement('span', 'text-sm font-black text-gray-900', `$${item.price}`);
                 
                 const btn = document.createElement('a');
                 btn.href = fixUrl(item.url);
                 btn.target = "_blank";
-                btn.className = "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors flex items-center gap-1 shadow-lg shadow-blue-200";
-                btn.innerHTML = `شراء <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
+                btn.className = "bg-blue-100 hover:bg-blue-600 text-blue-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-colors flex items-center justify-center gap-1";
+                btn.innerHTML = `شراء <svg class="w-3 h-3 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
 
                 footer.appendChild(price);
                 footer.appendChild(btn);
 
                 contentDiv.appendChild(title);
-                contentDiv.appendChild(desc);
                 contentDiv.appendChild(footer);
 
                 card.appendChild(imgDiv);
@@ -187,11 +151,40 @@
             container.appendChild(fragment);
         });
 
-        // 3. تحميل المعرض (Portfolio)
+        // 2. تحميل المعرض
         onSnapshot(query(collection(db, `artifacts/${appId}/public/data/portfolio`), orderBy('timestamp', 'desc')), (snap) => {
             portfolioItems = [];
             snap.forEach(doc => portfolioItems.push(doc.data()));
             renderGallery('all');
+        });
+
+        // 3. تحميل الروابط
+        onSnapshot(query(collection(db, `artifacts/${appId}/public/data/links`), orderBy('timestamp', 'desc')), (snap) => {
+            const container = document.getElementById('links-container');
+            container.innerHTML = '';
+            
+            if(snap.empty) { 
+                container.innerHTML = '<p class="text-gray-400 text-xs text-center py-2 col-span-full">لا توجد روابط</p>'; 
+                return; 
+            }
+
+            const fragment = document.createDocumentFragment();
+            snap.forEach(doc => {
+                const data = doc.data();
+                const a = document.createElement('a');
+                a.href = fixUrl(data.url);
+                a.target = "_blank";
+                a.className = "link-card bg-white p-3 rounded-lg shadow-sm flex items-center justify-between group no-underline hover:bg-gray-50";
+                
+                const span = createSafeElement('span', 'font-bold text-sm text-gray-700 group-hover:text-green-600 transition-colors truncate', data.title);
+                const icon = document.createElement('div');
+                icon.innerHTML = `<svg class="h-4 w-4 text-gray-400 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>`;
+                
+                a.appendChild(span);
+                a.appendChild(icon);
+                fragment.appendChild(a);
+            });
+            container.appendChild(fragment);
         });
     }
 
@@ -201,38 +194,36 @@
         const filtered = filter === 'all' ? portfolioItems : portfolioItems.filter(item => (item.platform || 'other').toLowerCase() === filter.toLowerCase());
         
         if (filtered.length === 0) {
-            grid.innerHTML = `<div class="col-span-full text-center py-12"><p class="text-gray-400 text-lg">لا توجد أعمال في هذا القسم حالياً.</p></div>`;
+            grid.innerHTML = `<div class="col-span-full text-center py-8"><p class="text-gray-400 text-xs">لا توجد أعمال.</p></div>`;
             return;
         }
 
         const fragment = document.createDocumentFragment();
         filtered.forEach(item => {
-            const safeImg = item.img || 'https://via.placeholder.com/400x300?text=Portfolio';
+            const safeImg = item.img || 'https://via.placeholder.com/300x300?text=Portfolio';
             const platform = (item.platform || 'other').toLowerCase();
 
             const a = document.createElement('a');
             a.href = fixUrl(item.url);
             a.target = "_blank";
-            a.className = "portfolio-card bg-white rounded-xl overflow-hidden shadow border border-gray-100 block group relative";
+            a.className = "portfolio-card bg-white rounded-lg overflow-hidden shadow-sm border border-gray-100 block group relative";
             
-            // Image Wrapper
             const imgWrap = document.createElement('div');
-            imgWrap.className = "aspect-[4/3] bg-gray-100 relative overflow-hidden";
+            imgWrap.className = "aspect-square bg-gray-50 relative overflow-hidden border-b border-gray-50 p-2 flex items-center justify-center";
             
             const img = document.createElement('img');
             img.src = safeImg;
-            img.className = "w-full h-full object-cover transition-transform duration-500 group-hover:scale-110";
-            img.onerror = function() { this.src='https://via.placeholder.com/400x300?text=Err'; };
+            img.className = "max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-110";
+            img.onerror = function() { this.src='https://via.placeholder.com/300x300?text=Err'; };
             
-            const badge = createSafeElement('span', `absolute top-2 right-2 text-[10px] font-bold px-2 py-1 rounded shadow-sm badge-${platform}`, platform.toUpperCase());
+            const badge = createSafeElement('span', `absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm badge-${platform}`, platform.toUpperCase());
             
             imgWrap.appendChild(img);
             imgWrap.appendChild(badge);
 
-            // Title
             const info = document.createElement('div');
-            info.className = "p-4";
-            const title = createSafeElement('h3', 'font-bold text-gray-800 text-sm truncate group-hover:text-green-600 transition-colors', item.title);
+            info.className = "p-2.5";
+            const title = createSafeElement('h3', 'font-bold text-gray-700 text-xs truncate group-hover:text-green-600 transition-colors', item.title);
             info.appendChild(title);
 
             a.appendChild(imgWrap);
@@ -242,24 +233,16 @@
         grid.appendChild(fragment);
     }
 
-    // Auth Handling
     signInAnonymously(auth)
         .then(() => {
             console.log("Logged in anonymously");
             initApp();
         })
         .catch((error) => {
-            console.warn("Auth failed, trying public access...", error);
-            // إذا كان الخطأ بسبب عدم تفعيل الدخول المجهول، نعرض تنبيهًا للمطور فقط
-            if (error.code === 'auth/admin-restricted-operation') {
-                const banner = document.getElementById('error-banner');
-                banner.style.display = 'block';
-                banner.innerHTML = `<span class="font-bold">ملاحظة للمطور:</span> قم بتفعيل "Anonymous Sign-in" في إعدادات Firebase لضمان أفضل أداء.`;
-            }
+            console.warn("Auth warning", error);
             initApp();
         });
 
-    // تصدير دالة الفلترة للـ Window
     window.setFilter = (filter, btn) => {
         document.querySelectorAll('.filter-btn').forEach(b => { 
             b.classList.remove('active', 'bg-gray-800', 'text-white'); 
@@ -273,97 +256,100 @@
 </head>
 <body>
 
-  <!-- شريط تنبيه بالأخطاء -->
   <div id="error-banner" class="bg-yellow-600 text-white p-3 text-center text-sm fixed top-0 left-0 w-full z-50 shadow-lg"></div>
 
   <header class="bg-white border-b sticky top-0 z-40 shadow-sm/50 backdrop-blur-md bg-white/90">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-10 h-10 rounded-full border shadow-sm" alt="Logo">
-            <span class="font-black text-xl tracking-tighter text-gray-900">HYPE NET</span>
+        <div class="flex items-center gap-2">
+            <img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-8 h-8 rounded-full border shadow-sm" alt="Logo">
+            <span class="font-black text-lg tracking-tighter text-gray-900">HYPE NET</span>
         </div>
-        <a href="#request-form" class="text-sm font-bold text-white bg-green-600 px-4 py-2 rounded-full hover:bg-green-700 transition-all shadow-lg shadow-green-200 no-underline">
+        <a href="#request-form" class="text-xs font-bold text-white bg-green-600 px-4 py-2 rounded-full hover:bg-green-700 transition-all shadow-md no-underline">
             اطلب تصميمك
         </a>
     </div>
   </header>
 
-  <main class="container mx-auto px-4 py-8 max-w-6xl">
+  <main class="container mx-auto px-4 py-6 max-w-5xl">
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-        <!-- القسم 1: الروابط العامة -->
-        <div class="lg:col-span-1">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span class="w-2 h-2 bg-gray-500 rounded-full"></span> روابط هامة
-            </h2>
-            <div id="links-container" class="space-y-3 min-h-[100px]">
-                <!-- Skeleton Loader -->
-                <div class="h-12 bg-gray-100 rounded animate-pulse"></div>
-                <div class="h-12 bg-gray-100 rounded animate-pulse delay-75"></div>
-            </div>
-        </div>
-
-        <!-- القسم 2: المتجر الرقمي -->
-        <div class="lg:col-span-2">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span class="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span> المتجر الرقمي (Digital Store)
-            </h2>
-            <div id="store-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5 min-h-[200px]">
-                <!-- Skeleton Loader -->
-                <div class="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
-                <div class="h-48 bg-gray-100 rounded-2xl animate-pulse delay-75"></div>
-            </div>
+    <!-- القسم 1: المتجر الرقمي -->
+    <div class="mb-10">
+        <!-- تعديل العنوان -->
+        <h2 class="text-2xl font-black mb-6 flex justify-center items-center gap-3 text-center bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+            <span class="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span> المتجر الرقمي
+        </h2>
+        
+        <div id="store-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[150px]">
+            <div class="h-40 bg-gray-100 rounded-xl animate-pulse"></div>
+            <div class="h-40 bg-gray-100 rounded-xl animate-pulse delay-75"></div>
+            <div class="h-40 bg-gray-100 rounded-xl animate-pulse delay-100"></div>
         </div>
     </div>
 
-    <hr class="border-gray-200 my-12">
+    <hr class="border-gray-100 my-8">
 
-    <!-- القسم 3: معرض الأعمال -->
-    <div class="text-center mb-10">
-        <h2 class="text-3xl font-extrabold text-gray-900 mb-2">معرض الأعمال</h2>
-        <p class="text-gray-500">نماذج من أعمالنا على المنصات العالمية</p>
+    <!-- القسم 2: معرض الأعمال -->
+    <div class="text-center mb-8">
+        <!-- تعديل العنوان -->
+        <h2 class="text-3xl font-extrabold mb-2 bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
+            معرض الأعمال
+        </h2>
+        <p class="text-xs text-gray-500">أحدث الإبداعات على المنصات العالمية</p>
     </div>
 
-    <div class="flex flex-wrap justify-center gap-3 mb-10">
-        <button onclick="setFilter('all', this)" class="filter-btn active bg-gray-800 text-white px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">الكل</button>
-        <button onclick="setFilter('redbubble', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Redbubble</button>
-        <button onclick="setFilter('amazon', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Amazon</button>
-        <button onclick="setFilter('behance', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Behance</button>
-        <button onclick="setFilter('instagram', this)" class="filter-btn bg-white text-gray-700 border px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all">Instagram</button>
+    <div class="flex flex-wrap justify-center gap-2 mb-8">
+        <button onclick="setFilter('all', this)" class="filter-btn active bg-gray-800 text-white px-4 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all">الكل</button>
+        <button onclick="setFilter('redbubble', this)" class="filter-btn bg-white text-gray-700 border px-4 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all">Redbubble</button>
+        <button onclick="setFilter('amazon', this)" class="filter-btn bg-white text-gray-700 border px-4 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all">Amazon</button>
+        <button onclick="setFilter('behance', this)" class="filter-btn bg-white text-gray-700 border px-4 py-1.5 rounded-full font-bold text-xs shadow-sm transition-all">Behance</button>
     </div>
 
-    <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-16 min-h-[200px]">
-        <div class="col-span-full flex justify-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div></div>
+    <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-12 min-h-[100px]">
+        <div class="col-span-full flex justify-center py-6"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div></div>
+    </div>
+
+    <hr class="border-gray-100 my-8">
+
+    <!-- القسم 3: روابط HYPE NET -->
+    <div class="mb-12">
+        <!-- تعديل العنوان -->
+        <h2 class="text-xl font-bold mb-6 flex justify-center items-center gap-2 text-center text-gray-800">
+            <span class="w-2 h-2 bg-gray-500 rounded-full"></span> روابط هامة & تواصل
+        </h2>
+        
+        <div id="links-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 min-h-[50px]">
+            <div class="h-10 bg-gray-100 rounded animate-pulse"></div>
+            <div class="h-10 bg-gray-100 rounded animate-pulse"></div>
+            <div class="h-10 bg-gray-100 rounded animate-pulse"></div>
+        </div>
     </div>
 
     <!-- القسم 4: نموذج الطلب -->
-    <div id="request-form" class="bg-gray-900 rounded-3xl p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full filter blur-3xl opacity-20 -mr-20 -mt-20"></div>
-        <div class="relative z-10 max-w-2xl mx-auto text-center">
-            <h2 class="text-3xl md:text-4xl font-black mb-4">هل لديك فكرة خاصة؟</h2>
-            <p class="text-gray-400 mb-8 text-lg">حول فكرتك إلى تصميم احترافي.</p>
+    <div id="request-form" class="bg-gray-900 rounded-2xl p-6 md:p-10 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-green-500 rounded-full filter blur-3xl opacity-10 -mr-20 -mt-20"></div>
+        <div class="relative z-10 max-w-xl mx-auto text-center">
+            <h2 class="text-2xl font-black mb-2">لديك فكرة؟</h2>
+            <p class="text-gray-400 mb-6 text-sm">نحولها إلى واقع.</p>
             
-            <form action="https://formspree.io/f/xjgvbyay" method="POST" class="space-y-4 text-right">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" name="name" placeholder="الاسم" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none">
-                    <input type="email" name="email" placeholder="البريد الإلكتروني" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none dir-ltr text-right">
+            <form action="https://formspree.io/f/xjgvbyay" method="POST" class="space-y-3 text-right">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" name="name" placeholder="الاسم" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:border-green-500 outline-none">
+                    <input type="email" name="email" placeholder="البريد" required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:border-green-500 outline-none dir-ltr text-right">
                 </div>
-                <select name="service_type" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none cursor-pointer">
-                    <option value="tshirt">تصميم تيشيرت (T-Shirt)</option>
-                    <option value="logo">شعار (Logo)</option>
-                    <option value="social">سوشيال ميديا (Social Media)</option>
-                    <option value="other">أخرى</option>
+                <select name="service_type" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:border-green-500 outline-none cursor-pointer">
+                    <option value="tshirt">تصميم تيشيرت</option>
+                    <option value="logo">شعار</option>
+                    <option value="social">سوشيال ميديا</option>
                 </select>
-                <textarea name="message" rows="4" placeholder="تفاصيل الفكرة..." required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:border-green-500 outline-none"></textarea>
-                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-lg transition transform hover:-translate-y-1">إرسال الطلب 🚀</button>
+                <textarea name="message" rows="3" placeholder="التفاصيل..." required class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:border-green-500 outline-none"></textarea>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg text-sm transition transform hover:-translate-y-1">إرسال</button>
             </form>
         </div>
     </div>
 
   </main>
 
-  <footer class="text-center py-8 text-gray-400 text-sm border-t bg-white mt-12 mb-16">
-    <div class="mb-2"><img src="https://i.postimg.cc/fLSj38WK/hype-net512.jpg" class="w-8 h-8 rounded-full mx-auto opacity-50 grayscale hover:grayscale-0 transition-all"></div>
+  <footer class="text-center py-6 text-gray-400 text-xs border-t bg-white mt-8 mb-12">
     <p>&copy; 2026 HYPE NET.</p>
   </footer>
 
